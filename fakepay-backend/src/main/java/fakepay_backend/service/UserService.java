@@ -1,7 +1,9 @@
 package fakepay_backend.service;
 
+import fakepay_backend.dto.LoginRequest;
 import fakepay_backend.dto.SignUpRequest;
 import fakepay_backend.exception.UserAlreadyExistsException;
+import fakepay_backend.exception.UserNotFoundException;
 import fakepay_backend.model.User;
 import fakepay_backend.repository.UserRepository;
 import fakepay_backend.util.JeffyEncryptionUtil;
@@ -24,6 +26,14 @@ public class UserService {
         user.setUserName(signUpRequest.getName());
         user.setPhoneNo(signUpRequest.getPhoneNo());
         return userRepository.save(user);
+    }
+
+    public User loginWithPhone(LoginRequest loginRequest) {
+        // Fetch user by phone or throw 404 exception if not found
+        return userRepository.findByPhoneNo(loginRequest.getPhoneNo())
+                .orElseThrow(() -> new UserNotFoundException(
+                        "User with phone number " + loginRequest.getPhoneNo() + " is not registered. Please sign up first."
+                ));
     }
 
 
