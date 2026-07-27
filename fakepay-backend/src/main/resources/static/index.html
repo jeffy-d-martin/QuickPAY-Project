@@ -1,0 +1,3426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FakePay</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+    <style>
+        :root{
+          --paper:#F6F1E4;
+          --paper-2:#EFE8D6;
+          --ink:#16233F;
+          --ink-soft:#4A5670;
+          --stamp:#B23A2E;
+          --brass:#9C7F1E;
+          --brass-bg:#F1E4B8;
+          --line:#D8CFB8;
+          --danger:#B23A2E;
+          --font-display:'Fraunces', serif;
+          --font-mono:'IBM Plex Mono', monospace;
+        }
+
+        *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+        html,body{ margin:0; padding:0; height:100%; background:#0f0f0d; }
+
+        body{
+          display:flex; justify-content:center; align-items:flex-start;
+          min-height:100vh; font-family:var(--font-mono);
+        }
+
+        #app{
+          width:100%; max-width:440px; min-height:100vh;
+          background:var(--paper);
+          color:var(--ink);
+          position:relative;
+          display:flex; flex-direction:column;
+          box-shadow:0 0 60px rgba(0,0,0,0.4);
+        }
+
+        /* stitched edge */
+        #app::before{
+          content:'';
+          position:absolute; top:0; left:14px; bottom:0;
+          width:1px;
+          background-image:repeating-linear-gradient(to bottom, var(--line) 0 6px, transparent 6px 12px);
+        }
+
+        /* ---------- Header strip ---------- */
+        .ledger-head{
+          padding:30px 26px 22px 34px;
+          border-bottom:2px solid var(--ink);
+          position:relative;
+        }
+        .ledger-head .eyebrow{
+          font-size:11px;
+          letter-spacing:0.2em;
+          text-transform:uppercase;
+          color:var(--ink-soft);
+          display:flex; align-items:center; gap:8px;
+          margin-bottom:10px;
+        }
+        .ledger-head .eyebrow::before{
+          content:'';
+          width:6px; height:6px;
+          background:var(--stamp);
+          border-radius:50%;
+          display:inline-block;
+        }
+        .ledger-head h1{
+          font-family:var(--font-display);
+          font-weight:700;
+          font-size:40px;
+          line-height:1;
+          margin:0 0 8px;
+          letter-spacing:-0.01em;
+        }
+        .ledger-head h1 em{
+          font-style:normal;
+          color:var(--stamp);
+        }
+        .ledger-head p{
+          margin:0;
+          font-size:12.5px;
+          color:var(--ink-soft);
+          line-height:1.6;
+          max-width:280px;
+        }
+        .acct-no{
+          position:absolute;
+          top:30px; right:26px;
+          text-align:right;
+          font-size:10px;
+          color:var(--ink-soft);
+          letter-spacing:0.06em;
+        }
+        .acct-no b{
+          display:block;
+          font-size:13px;
+          color:var(--ink);
+          margin-top:2px;
+        }
+
+        /* ---------- Page body ---------- */
+        .page{
+          flex:1;
+          padding:26px 26px 22px 34px;
+          display:flex;
+          flex-direction:column;
+        }
+
+        .tabs{
+          display:flex;
+          border:1.5px solid var(--ink);
+          border-radius:3px;
+          overflow:hidden;
+          margin-bottom:24px;
+        }
+        .tab{
+          flex:1;
+          text-align:center;
+          padding:11px 0;
+          font-size:12.5px;
+          font-weight:500;
+          letter-spacing:0.04em;
+          text-transform:uppercase;
+          cursor:pointer;
+          color:var(--ink-soft);
+          background:transparent;
+          transition:background .2s ease, color .2s ease;
+          user-select:none;
+        }
+        .tab + .tab{ border-left:1.5px solid var(--ink); }
+        .tab.active{
+          background:var(--ink);
+          color:var(--paper);
+        }
+
+        .panels{ position:relative; flex:1; }
+        .panel{ display:none; flex-direction:column; gap:16px; animation:fadeIn .3s ease; }
+        .panel.active{ display:flex; }
+        @keyframes fadeIn{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+
+        .ruled-field{
+          display:flex; flex-direction:column; gap:5px;
+          padding-bottom:10px;
+          border-bottom:1px solid var(--line);
+        }
+        .ruled-field label{
+          font-size:10.5px;
+          letter-spacing:0.1em;
+          text-transform:uppercase;
+          color:var(--ink-soft);
+        }
+        .ruled-field input{
+          border:none; background:transparent;
+          font-family:var(--font-display);
+          font-size:19px;
+          color:var(--ink);
+          padding:2px 0;
+          outline:none;
+          width:100%;
+        }
+        .ruled-field input::placeholder{ color:#B7AF98; font-family:var(--font-mono); font-size:14px; }
+        .ruled-field.focus{ border-bottom-color:var(--ink); }
+
+        .error-msg{
+          font-size:11.5px;
+          color:var(--stamp);
+          min-height:14px;
+          display:none;
+          font-family:var(--font-mono);
+          font-weight:700;
+          background:rgba(178,58,46,0.1);
+          border:1px dashed var(--stamp);
+          padding:8px 12px;
+          border-radius:6px;
+          margin-bottom:12px;
+          text-align:center;
+          line-height:1.4;
+        }
+        .error-msg.show{
+          display:block;
+          animation:fadeInDown 0.2s ease forwards;
+        }
+        @keyframes fadeInDown{
+          0%{ opacity:0; transform:translateY(-4px); }
+          100%{ opacity:1; transform:translateY(0); }
+        }
+
+        .shake-error{
+          animation:shakeInput 0.35s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+          border-color:var(--stamp) !important;
+        }
+        @keyframes shakeInput{
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
+        .submit-btn{
+          margin-top:8px;
+          background:var(--ink);
+          color:var(--paper);
+          border:none;
+          border-radius:3px;
+          padding:16px;
+          font-size:13px;
+          font-weight:600;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+          font-family:var(--font-mono);
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:10px;
+          transition:transform .12s ease, background .15s ease;
+        }
+        .submit-btn:active{ transform:scale(0.97); }
+        .submit-btn:focus-visible{ outline:2px solid var(--stamp); outline-offset:3px; }
+        .submit-btn .spinner{
+          width:14px; height:14px;
+          border:2px solid rgba(246,241,228,0.3);
+          border-top-color:var(--paper);
+          border-radius:50%;
+          display:none;
+          animation:spin .7s linear infinite;
+        }
+        .submit-btn.loading .spinner{ display:inline-block; }
+        .submit-btn.loading .btn-text{ display:none; }
+        @keyframes spin{ to{ transform:rotate(360deg); } }
+
+        .foot-note{
+          font-size:10px;
+          color:var(--ink-soft);
+          text-align:center;
+          margin-top:auto;
+          padding-top:20px;
+          letter-spacing:0.05em;
+          border-top:1px dashed var(--line);
+        }
+
+        /* ---------- Welcome / stamped page ---------- */
+        #welcome{
+          display:none;
+          position:absolute;
+          inset:0;
+          flex-direction:column;
+          align-items:stretch;
+          justify-content:flex-start;
+          text-align:left;
+          padding:20px 22px 30px;
+          background:var(--paper);
+          overflow-y:auto;
+          z-index:10;
+        }
+        #welcome.show{ display:flex; }
+        #welcome > *{ flex-shrink:0; }
+
+        /* ---------- Profile Ledger Card ---------- */
+        .profile-ledger-card{
+          width:100%;
+          background:var(--paper-2);
+          border:1.5px solid var(--ink);
+          border-radius:10px;
+          padding:18px 20px;
+          margin-bottom:18px;
+          text-align:left;
+          position:relative;
+          box-shadow:0 4px 14px rgba(0,0,0,0.05);
+        }
+        .profile-ledger-card::before{
+          content:'';
+          position:absolute;
+          top:4px; left:4px; right:4px; bottom:4px;
+          border:1px dashed var(--line);
+          border-radius:4px;
+          pointer-events:none;
+        }
+        .plc-top{
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:10px;
+          margin-bottom:10px;
+          flex-wrap:wrap;
+        }
+        .plc-identity{
+          display:flex;
+          flex-direction:column;
+          gap:3px;
+        }
+        .plc-greeting{
+          font-family:var(--font-display);
+          font-weight:700;
+          font-size:22px;
+          color:var(--ink);
+          line-height:1.2;
+        }
+        .plc-greeting .wname{
+          color:var(--stamp);
+        }
+        .plc-phone{
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          font-family:var(--font-mono);
+          font-size:11.5px;
+          color:var(--ink-soft);
+          font-weight:500;
+        }
+        .plc-seal-banner{
+          display:flex;
+          align-items:center;
+          gap:6px;
+          font-family:var(--font-mono);
+          font-size:9.5px;
+          color:var(--ink-soft);
+          letter-spacing:0.04em;
+          padding-top:8px;
+          border-top:1px dashed var(--line);
+          text-transform:uppercase;
+        }
+        .plc-seal-banner .seal-icon{
+          font-size:11px;
+        }
+        .status-badge{
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          font-size:11px;
+          font-weight:500;
+          padding:4px 10px;
+          border-radius:12px;
+          font-family:var(--font-mono);
+          border:1px solid transparent;
+          transition:all .2s ease;
+        }
+        .status-badge.unlinked{
+          background:#FDF3D8;
+          color:#7A5E0B;
+          border-color:var(--brass);
+        }
+        .status-badge.linked{
+          background:#E2F3E7;
+          color:#1B6635;
+          border-color:#2E8B57;
+        }
+        /* ---------- Google Pay Style Top Header Bar ---------- */
+        .gpay-top-bar{
+          width:100%;
+          background:linear-gradient(135deg, var(--paper-2) 0%, #E8DFC8 100%);
+          border:1.5px solid var(--ink);
+          border-radius:14px;
+          padding:16px 20px;
+          margin-bottom:24px;
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          box-shadow:0 6px 20px rgba(22,35,63,0.08);
+          position:relative;
+        }
+        .gpay-brand-box{
+          display:flex;
+          flex-direction:column;
+          align-items:flex-start;
+          gap:3px;
+        }
+        .gpay-app-title{
+          font-family:var(--font-display);
+          font-size:22px;
+          font-weight:800;
+          color:var(--ink);
+          letter-spacing:-0.01em;
+          line-height:1.2;
+        }
+        .gpay-user-greeting{
+          font-family:var(--font-mono);
+          font-size:13px;
+          color:var(--ink);
+          font-weight:600;
+        }
+        .gpay-user-phone{
+          font-family:var(--font-mono);
+          font-size:11px;
+          color:var(--ink-soft);
+          font-weight:500;
+        }
+        .gpay-top-actions{
+          display:flex;
+          align-items:center;
+          gap:12px;
+        }
+        .gpay-avatar-btn{
+          width:48px;
+          height:48px;
+          background:linear-gradient(135deg, var(--ink) 0%, #2A3B5C 100%);
+          color:var(--paper);
+          border:2.5px solid var(--brass);
+          border-radius:50%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-family:var(--font-display);
+          font-size:22px;
+          font-weight:800;
+          cursor:pointer;
+          box-shadow:0 4px 14px rgba(22,35,63,0.22);
+          transition:transform .18s ease, box-shadow .18s ease;
+        }
+        .gpay-avatar-btn:hover{
+          transform:scale(1.08);
+          box-shadow:0 6px 18px rgba(22,35,63,0.3);
+        }
+        .gpay-avatar-btn:active{
+          transform:scale(0.96);
+        }
+        /* ---------- Ultra-Smooth Success Animation & Tick ---------- */
+        .succ-tick-box{
+          width:80px; height:80px;
+          margin:0 auto 12px;
+          position:relative; z-index:2;
+          display:flex; align-items:center; justify-content:center;
+        }
+        .succ-tick-svg{
+          width:80px; height:80px;
+          border-radius:50%;
+          display:block;
+          stroke-width:3.5;
+          stroke:#2E8B57;
+          stroke-miterlimit:10;
+          box-shadow:inset 0px 0px 0px #2E8B57;
+          animation:fillTick .4s ease-in-out .4s forwards, scaleTick .3s ease-in-out .9s forwards;
+        }
+        .succ-tick-circle{
+          stroke-dasharray:166;
+          stroke-dashoffset:166;
+          stroke-width:3.5;
+          stroke-miterlimit:10;
+          stroke:#2E8B57;
+          fill:none;
+          animation:strokeCircle 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+        .succ-tick-check{
+          transform-origin:50% 50%;
+          stroke-dasharray:48;
+          stroke-dashoffset:48;
+          stroke:#2E8B57;
+          animation:strokeCheck 0.35s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+        }
+        @keyframes strokeCircle{ 100%{ stroke-dashoffset:0; } }
+        @keyframes strokeCheck{ 100%{ stroke-dashoffset:0; } }
+        @keyframes fillTick{ 100%{ box-shadow:inset 0px 0px 0px 40px rgba(46,139,87,0.15); } }
+        @keyframes scaleTick{ 0%,100%{ transform:none; } 50%{ transform:scale3d(1.12,1.12,1); } }
+
+        .succ-ring-outer{
+          position:absolute; top:-40px; left:50%;
+          transform:translateX(-50%);
+          width:240px; height:240px;
+          border:2px dashed rgba(46,139,87,0.25);
+          border-radius:50%;
+          animation:rotateRing 14s linear infinite;
+          pointer-events:none;
+        }
+        .succ-ring-inner{
+          position:absolute; top:-20px; left:50%;
+          transform:translateX(-50%);
+          width:200px; height:200px;
+          border:1.5px dotted rgba(156,127,30,0.3);
+          border-radius:50%;
+          animation:rotateRingRev 10s linear infinite;
+          pointer-events:none;
+        }
+        @keyframes rotateRing{ 0%{ transform:translateX(-50%) rotate(0deg); } 100%{ transform:translateX(-50%) rotate(360deg); } }
+        @keyframes rotateRingRev{ 0%{ transform:translateX(-50%) rotate(360deg); } 100%{ transform:translateX(-50%) rotate(0deg); } }
+
+        /* ---------- Google Pay Style Full-Screen Success Overlay (Paper Theme) ---------- */
+        .gpay-overlay-backdrop{
+          position:fixed; inset:0; z-index:9999;
+          background:linear-gradient(135deg, var(--paper) 0%, #EFE5CD 100%);
+          color:var(--ink);
+          display:flex; align-items:center; justify-content:center;
+          flex-direction:column;
+          opacity:0; pointer-events:none;
+          transition:opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .gpay-overlay-backdrop.show{
+          opacity:1; pointer-events:auto;
+        }
+        .gpay-success-stage{
+          display:flex; flex-direction:column; align-items:center;
+          text-align:center; padding:32px 24px; position:relative;
+          width:100%; max-width:420px;
+          animation:stagePopUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes stagePopUp{
+          0%{ transform:scale(0.85); opacity:0; }
+          100%{ transform:scale(1); opacity:1; }
+        }
+        .gpay-ripple-ring{
+          position:absolute; top:75px; left:50%;
+          transform:translate(-50%, -50%);
+          border-radius:50%;
+          border:2px dashed rgba(46, 139, 87, 0.3);
+          pointer-events:none;
+        }
+        .gpay-ripple-ring.ring-1{ width:140px; height:140px; animation:rippleExpand 1.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite; }
+        .gpay-ripple-ring.ring-2{ width:200px; height:200px; animation:rippleExpand 1.6s cubic-bezier(0.1, 0.8, 0.3, 1) 0.3s infinite; }
+        .gpay-ripple-ring.ring-3{ width:260px; height:260px; animation:rippleExpand 1.6s cubic-bezier(0.1, 0.8, 0.3, 1) 0.6s infinite; }
+        @keyframes rippleExpand{
+          0%{ transform:translate(-50%, -50%) scale(0.6); opacity:0.8; }
+          100%{ transform:translate(-50%, -50%) scale(1.3); opacity:0; }
+        }
+        .gpay-tick-circle-box{
+          width:110px; height:110px; margin-bottom:24px; position:relative; z-index:5;
+        }
+        .gpay-tick-svg{
+          width:110px; height:110px; border-radius:50%; display:block;
+          stroke-width:4; stroke:#1B6635; stroke-miterlimit:10;
+          box-shadow:0 6px 20px rgba(27, 102, 53, 0.2);
+          animation:gpayFillTick 0.4s ease-in-out 0.4s forwards, gpayScaleTick 0.3s ease-in-out 0.8s forwards;
+        }
+        .gpay-tick-circle{
+          stroke-dasharray:240; stroke-dashoffset:240; stroke-width:4; stroke:#1B6635; fill:none;
+          animation:gpayCircleDraw 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+        }
+        .gpay-tick-check{
+          transform-origin:50% 50%; stroke-dasharray:60; stroke-dashoffset:60; stroke:#1B6635; fill:none;
+          animation:gpayCheckDraw 0.35s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
+        }
+        @keyframes gpayCircleDraw{ 100%{ stroke-dashoffset:0; } }
+        @keyframes gpayCheckDraw{ 100%{ stroke-dashoffset:0; } }
+        @keyframes gpayFillTick{ 100%{ box-shadow:0 8px 24px rgba(27,102,53,0.3), inset 0px 0px 0px 60px rgba(46,139,87,0.15); } }
+        @keyframes gpayScaleTick{ 0%,100%{ transform:none; } 50%{ transform:scale3d(1.15,1.15,1); } }
+
+        .gpay-succ-badge{
+          font-family:var(--font-mono); font-size:11px; letter-spacing:0.12em;
+          text-transform:uppercase; color:#1B6635; background:#E2F3E7;
+          border:1px solid #2E8B57; padding:6px 14px; border-radius:20px;
+          margin-bottom:14px; font-weight:700;
+        }
+        .gpay-succ-amount{
+          font-family:var(--font-display); font-size:46px; font-weight:800;
+          color:var(--ink); letter-spacing:-0.02em; margin-bottom:6px;
+        }
+        .gpay-succ-payee{
+          font-family:var(--font-mono); font-size:15px; font-weight:700;
+          color:var(--ink-soft); margin-bottom:22px;
+        }
+        .gpay-succ-meta-box{
+          background:var(--paper-2); border:1.5px dashed var(--line);
+          border-radius:10px; padding:14px 20px; width:100%; margin-bottom:28px;
+          display:flex; flex-direction:column; gap:6px; text-align:center;
+          box-shadow:0 2px 8px rgba(0,0,0,0.04);
+        }
+        .gpay-meta-line{
+          font-family:var(--font-mono); font-size:12px; font-weight:600; color:var(--ink);
+        }
+        .gpay-done-btn{
+          width:100%; background:var(--ink); color:var(--paper); border:none;
+          border-radius:8px; padding:15px; font-family:var(--font-mono);
+          font-size:14px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;
+          cursor:pointer; box-shadow:0 6px 18px rgba(22,35,63,0.18);
+          transition:transform 0.15s ease, background 0.15s ease;
+        }
+        .gpay-done-btn:hover{ background:var(--brass); transform:translateY(-2px); }
+        .gpay-done-btn:active{ transform:translateY(0); }
+
+        /* ---------- CTA Card (Link Bank Account) ---------- */
+        .cta-card{
+          width:100%;
+          background:#FAF5E8;
+          border:2px solid var(--brass);
+          border-radius:6px;
+          padding:18px;
+          margin-bottom:20px;
+          text-align:left;
+          position:relative;
+          box-shadow:0 4px 14px rgba(156,127,30,0.12);
+        }
+        .cta-head{
+          display:flex;
+          align-items:flex-start;
+          gap:12px;
+          margin-bottom:14px;
+        }
+        .cta-icon{
+          font-size:24px;
+          line-height:1;
+        }
+        .cta-head h4{
+          font-family:var(--font-display);
+          font-size:17px;
+          font-weight:700;
+          color:var(--ink);
+          margin:0 0 4px;
+        }
+        .cta-desc{
+          font-family:var(--font-mono);
+          font-size:11.5px;
+          color:var(--ink-soft);
+          line-height:1.5;
+          margin:0;
+        }
+        .cta-btn{
+          width:100%;
+          background:var(--ink);
+          color:var(--paper);
+          border:none;
+          border-radius:4px;
+          padding:13px;
+          font-family:var(--font-mono);
+          font-size:12px;
+          font-weight:600;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+          cursor:pointer;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          gap:6px;
+          transition:transform .12s ease, background .15s ease;
+        }
+        .cta-btn:active{ transform:scale(0.98); }
+        .cta-card.linked-state{
+          background:#EFF8F2;
+          border-color:#2E8B57;
+          box-shadow:none;
+        }
+
+        /* ---------- Balance Card Refresh & Eye Icon ---------- */
+        .balance-card{
+          width:100%;
+          background:linear-gradient(135deg, var(--paper-2) 0%, #E6DEC8 100%);
+          border:1.5px solid var(--ink);
+          border-radius:10px;
+          padding:18px 22px;
+          margin-bottom:24px;
+          text-align:left;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          box-shadow:0 6px 18px rgba(22,35,63,0.08);
+          position:relative;
+          overflow:hidden;
+        }
+        .balance-card::before{
+          content:'';
+          position:absolute;
+          top:0; left:0; right:0; height:3px;
+          background:linear-gradient(90deg, var(--brass) 0%, var(--stamp) 50%, var(--brass) 100%);
+        }
+        .bl-left{ display:flex; flex-direction:column; gap:4px; }
+        .bl-label{
+          font-family:var(--font-mono);
+          font-size:10px;
+          letter-spacing:0.14em;
+          text-transform:uppercase;
+          color:var(--ink-soft);
+          font-weight:700;
+        }
+        .bl-amount-row{ display:flex; align-items:center; gap:10px; }
+        .bl-amount{
+          font-family:var(--font-display);
+          font-size:26px;
+          font-weight:800;
+          color:var(--ink);
+          letter-spacing:-0.02em;
+        }
+        .icon-toggle-btn{
+          background:var(--paper);
+          border:1px solid var(--line);
+          border-radius:50%;
+          width:32px;
+          height:32px;
+          font-size:15px;
+          cursor:pointer;
+          display:inline-flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 2px 4px rgba(0,0,0,0.08);
+          transition:transform .15s ease, background .15s ease, border-color .15s ease;
+        }
+        .icon-toggle-btn:hover{
+          transform:scale(1.08);
+          background:#FFFFFF;
+          border-color:var(--ink);
+        }
+        
+        .bl-right{ display:flex; align-items:center; }
+        .refresh-bal-btn{
+          background:var(--ink);
+          border:1.5px solid var(--ink);
+          color:var(--paper);
+          padding:9px 14px;
+          border-radius:6px;
+          font-family:var(--font-mono);
+          font-size:11px;
+          font-weight:600;
+          letter-spacing:0.06em;
+          cursor:pointer;
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          box-shadow:0 3px 8px rgba(22,35,63,0.15);
+          transition:all .15s ease;
+        }
+        .refresh-bal-btn:hover{
+          background:var(--brass);
+          border-color:var(--brass);
+          transform:translateY(-1px);
+        }
+        .refresh-bal-btn:active{ transform:scale(0.96); }
+
+        /* ---------- Linked Bank Account Card Enhanced ---------- */
+        .linked-bank-card{
+          width:100%;
+          background:linear-gradient(135deg, #1B6635 0%, #16233F 100%);
+          color:#FFFFFF;
+          border:1.5px solid #16233F;
+          border-radius:12px;
+          padding:16px 18px;
+          margin-bottom:18px;
+          position:relative;
+          box-shadow:0 6px 20px rgba(22,35,63,0.18);
+          overflow:hidden;
+          transition:transform .18s ease, box-shadow .18s ease;
+        }
+        .linked-bank-card:hover{
+          transform:translateY(-2px);
+          box-shadow:0 8px 24px rgba(22,35,63,0.25);
+        }
+        .linked-bank-card::before{
+          content:'';
+          position:absolute;
+          top:-30px; right:-30px;
+          width:100px; height:100px;
+          background:rgba(255,255,255,0.06);
+          border-radius:50%;
+          pointer-events:none;
+        }
+        .lbc-top{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          width:100%;
+          margin-bottom:12px;
+        }
+        .lbc-left-box{
+          display:flex;
+          align-items:center;
+          gap:10px;
+        }
+        .lbc-icon-box{
+          width:36px;
+          height:36px;
+          background:rgba(255,255,255,0.15);
+          border:1px solid rgba(255,255,255,0.25);
+          border-radius:8px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:20px;
+          backdrop-filter:blur(4px);
+          flex-shrink:0;
+        }
+        .lbc-details h4{
+          font-family:var(--font-display);
+          font-size:17px;
+          font-weight:700;
+          color:#FFFFFF;
+          margin:0;
+          letter-spacing:-0.01em;
+        }
+        .lbc-tag{
+          font-family:var(--font-mono);
+          font-size:10px;
+          font-weight:700;
+          color:#1B6635;
+          background:#FFFFFF;
+          border:1px solid rgba(255,255,255,0.9);
+          padding:4px 9px;
+          border-radius:14px;
+          letter-spacing:0.03em;
+          white-space:nowrap;
+          box-shadow:0 2px 6px rgba(0,0,0,0.15);
+          display:inline-flex;
+          align-items:center;
+          gap:5px;
+          flex-shrink:0;
+        }
+        .lbc-bottom{
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          padding-top:10px;
+          border-top:1px dashed rgba(255,255,255,0.2);
+        }
+        .lbc-upi-label{
+          font-family:var(--font-mono);
+          font-size:10px;
+          text-transform:uppercase;
+          letter-spacing:0.08em;
+          color:rgba(255,255,255,0.7);
+        }
+        .lbc-upi-val{
+          font-family:var(--font-mono);
+          font-size:12px;
+          font-weight:600;
+          color:#FFFFFF;
+          letter-spacing:0.02em;
+        }
+
+        /* ---------- QR Scanner Laser Animation & Sample Buttons ---------- */
+        .scanner-laser{
+          position:absolute;
+          top:0; left:0; right:0;
+          height:3px;
+          background:linear-gradient(90deg, transparent, #2E8B57, #00FF66, #2E8B57, transparent);
+          box-shadow:0 0 12px #00FF66;
+          animation:laserScan 2s linear infinite;
+          z-index:3;
+        }
+        @keyframes laserScan{
+          0%{ top: 5%; opacity: 0.2; }
+          50%{ top: 90%; opacity: 1; }
+          100%{ top: 5%; opacity: 0.2; }
+        }
+        .qr-sample-btn{
+          background:var(--paper-2);
+          border:1px solid var(--line);
+          border-radius:6px;
+          padding:8px 12px;
+          font-family:var(--font-mono);
+          font-size:11.5px;
+          color:var(--ink);
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          cursor:pointer;
+          transition:all .15s ease;
+        }
+        .qr-sample-btn:hover{
+          border-color:var(--ink);
+          background:var(--paper);
+          transform:translateX(2px);
+        }
+
+        /* ---------- Transaction Node Cards ---------- */
+        .tx-card{
+          background:var(--paper);
+          border:1.5px solid var(--line);
+          border-radius:8px;
+          padding:14px 16px;
+          display:flex;
+          flex-direction:column;
+          gap:8px;
+          text-align:left;
+          box-shadow:0 2px 6px rgba(0,0,0,0.03);
+          transition:transform .15s ease, border-color .15s ease;
+        }
+        .tx-card:hover{
+          border-color:var(--ink);
+          transform:translateY(-1px);
+        }
+        .tx-card-top{
+          display:flex;
+          justify-content:space-between;
+          align-items:flex-start;
+          gap:10px;
+        }
+        .tx-party-title{
+          font-family:var(--font-mono);
+          font-size:13px;
+          font-weight:700;
+          color:var(--ink);
+        }
+        .tx-route-sub{
+          font-family:var(--font-mono);
+          font-size:11px;
+          color:var(--ink-soft);
+          margin-top:2px;
+        }
+        .tx-amount{
+          font-family:var(--font-display);
+          font-size:17px;
+          font-weight:800;
+          letter-spacing:-0.01em;
+          white-space:nowrap;
+        }
+        .tx-amount.credit{
+          color:#2E8B57;
+        }
+        .tx-amount.debit{
+          color:#B23A2E;
+        }
+        .tx-card-bot{
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+          padding-top:8px;
+          border-top:1px dashed var(--line);
+          font-family:var(--font-mono);
+          font-size:10.5px;
+          color:var(--ink-soft);
+        }
+        .tx-date-time{
+          font-weight:500;
+        }
+        .block-hash-chip{
+          background:rgba(22,35,63,0.06);
+          border:1px solid var(--line);
+          padding:3px 8px;
+          border-radius:4px;
+          font-family:var(--font-mono);
+          font-size:9.5px;
+          color:var(--ink);
+          cursor:pointer;
+          transition:all .15s ease;
+        }
+        .block-hash-chip:hover{
+          background:var(--ink);
+          color:var(--paper);
+        }
+
+        /* ---------- Quick Actions / Teaser UI ---------- */
+        .teaser-section{
+          width:100%;
+          margin-bottom:24px;
+          text-align:left;
+        }
+        .section-title{
+          font-family:var(--font-mono);
+          font-size:11px;
+          letter-spacing:0.16em;
+          text-transform:uppercase;
+          color:var(--ink-soft);
+          margin-bottom:12px;
+          font-weight:700;
+          display:flex;
+          align-items:center;
+          gap:8px;
+        }
+        .section-title::after{
+          content:'';
+          flex:1;
+          height:1px;
+          background:var(--line);
+        }
+        .quick-actions-grid{
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:12px;
+        }
+        .action-card{
+          background:var(--paper-2);
+          border:1.5px solid var(--line);
+          border-radius:8px;
+          padding:16px 14px;
+          display:flex;
+          flex-direction:column;
+          align-items:flex-start;
+          gap:8px;
+          text-align:left;
+          cursor:pointer;
+          transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease;
+          position:relative;
+          font-family:var(--font-mono);
+          width:100%;
+          box-shadow:0 2px 6px rgba(0,0,0,0.03);
+        }
+        .action-card:hover{
+          border-color:var(--ink);
+          transform:translateY(-2px);
+          box-shadow:0 6px 16px rgba(22,35,63,0.1);
+          background:var(--paper);
+        }
+        .action-card.disabled{
+          opacity:0.65;
+          background:rgba(239,232,214,0.5);
+          border-style:dashed;
+          cursor:not-allowed;
+          box-shadow:none;
+        }
+        .action-card.disabled:hover{
+          transform:none;
+          border-color:var(--line);
+          background:rgba(239,232,214,0.5);
+        }
+        .action-card .action-icon-wrapper{
+          width:36px;
+          height:36px;
+          background:var(--paper);
+          border:1px solid var(--line);
+          border-radius:6px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          font-size:18px;
+          margin-bottom:2px;
+          box-shadow:0 2px 4px rgba(0,0,0,0.04);
+        }
+        .action-card .action-title{
+          font-size:13px;
+          font-weight:700;
+          color:var(--ink);
+          margin-bottom:2px;
+        }
+        .action-card .action-tag{
+          font-size:9.5px;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+          font-weight:600;
+          color:var(--stamp);
+          background:rgba(178,58,46,0.08);
+          padding:3px 8px;
+          border-radius:4px;
+          border:1px solid rgba(178,58,46,0.2);
+        }
+        .action-card:not(.disabled) .action-tag{
+          color:#1B6635;
+          background:rgba(46,139,87,0.1);
+          border-color:rgba(46,139,87,0.3);
+        }
+
+        .stamp-mark{
+          width:44px; height:44px;
+          border:1.5px solid var(--stamp);
+          border-radius:50%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:var(--stamp);
+          transform:rotate(-14deg);
+          opacity:0;
+          margin-bottom:4px;
+          position:relative;
+        }
+        .stamp-mark.animate{
+          animation:stampDown .5s cubic-bezier(.2,.8,.3,1.1) forwards;
+        }
+        @keyframes stampDown{
+          0%{ transform:scale(1.3) rotate(-14deg); opacity:0; }
+          60%{ transform:scale(0.95) rotate(-14deg); opacity:1; }
+          100%{ transform:scale(1) rotate(-14deg); opacity:1; }
+        }
+        .stamp-mark::before{
+          content:'';
+          position:absolute; inset:3px;
+          border:1px solid var(--stamp);
+          border-radius:50%;
+        }
+        .stamp-mark span{
+          font-family:var(--font-mono);
+          font-size:7px;
+          font-weight:700;
+          letter-spacing:0.04em;
+          line-height:1.2;
+          transform:rotate(14deg);
+          text-align:center;
+        }
+
+        #welcome h2{
+          font-family:var(--font-display);
+          font-weight:600;
+          font-size:22px;
+          margin:0 0 2px;
+        }
+        #welcome .wname{ color:var(--stamp); }
+        #welcome p.sub{
+          font-size:11px;
+          color:var(--ink-soft);
+          max-width:280px;
+          line-height:1.4;
+          margin:0 0 10px;
+        }
+
+        .balance-card{
+          width:100%;
+          background:var(--paper-2);
+          border:1px solid var(--line);
+          border-radius:6px;
+          padding:16px 20px;
+          margin-bottom:28px;
+          text-align:left;
+          display:flex;
+          justify-content:space-between;
+          align-items:center;
+        }
+        .balance-card .bl-label{
+          font-size:9.5px;
+          letter-spacing:0.12em;
+          text-transform:uppercase;
+          color:var(--ink-soft);
+          display:block;
+          margin-bottom:6px;
+        }
+        .balance-card .bl-amount{
+          font-family:var(--font-display);
+          font-size:24px;
+          font-weight:600;
+          color:var(--ink);
+        }
+        .balance-card .bl-icon{
+          font-family:var(--font-mono);
+          font-size:10px;
+          color:var(--brass);
+          background:var(--brass-bg);
+          padding:5px 9px;
+          border-radius:3px;
+          letter-spacing:0.05em;
+        }
+
+        .logout-btn{
+          background:transparent;
+          border:1.5px solid var(--ink);
+          color:var(--ink);
+          padding:12px 30px;
+          border-radius:3px;
+          font-family:var(--font-mono);
+          font-size:11.5px;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+          cursor:pointer;
+        }
+        .logout-btn:active{ transform:scale(0.97); }
+
+        @media (prefers-reduced-motion: reduce){
+          *{ animation:none !important; transition:none !important; }
+        }
+
+        /* ---------- Toast popup ---------- */
+        #toast-stack{
+          position:fixed;
+          left:0; right:0; bottom:0;
+          display:flex;
+          justify-content:center;
+          padding:0 20px 26px;
+          pointer-events:none;
+          z-index:50;
+        }
+        .toast{
+          max-width:400px;
+          width:100%;
+          background:var(--ink);
+          color:var(--paper);
+          border-radius:6px;
+          padding:14px 16px;
+          font-family:var(--font-mono);
+          font-size:12.5px;
+          line-height:1.5;
+          display:flex;
+          flex-direction:column;
+          gap:4px;
+          box-shadow:0 10px 30px rgba(0,0,0,0.35);
+          border-top:2px dashed rgba(246,241,228,0.35);
+          transform:translateY(16px);
+          opacity:0;
+          animation:toastIn .3s ease forwards;
+        }
+        .toast .toast-label{
+          font-size:10px;
+          letter-spacing:0.14em;
+          text-transform:uppercase;
+          color:var(--brass);
+          display:flex;
+          align-items:center;
+          gap:7px;
+        }
+        .toast.error .toast-label{ color:#E0897F; }
+        .toast .toast-label::before{
+          content:'';
+          width:7px; height:7px;
+          border-radius:50%;
+          background:var(--brass);
+        }
+        .toast.error .toast-label::before{ background:var(--stamp); }
+        .toast .toast-msg{ color:var(--paper); }
+        .toast.leaving{
+          animation:toastOut .25s ease forwards;
+        }
+        @keyframes toastIn{
+          from{ transform:translateY(16px); opacity:0; }
+          to{ transform:translateY(0); opacity:1; }
+        }
+        @keyframes toastOut{
+          from{ transform:translateY(0); opacity:1; }
+          to{ transform:translateY(16px); opacity:0; }
+        }
+
+        /* ---------- Themed Modal Popup ---------- */
+        .modal-backdrop{
+          position:fixed;
+          inset:0;
+          background:rgba(22,35,63,0.65);
+          backdrop-filter:blur(3px);
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          padding:20px;
+          z-index:100;
+          opacity:0;
+          pointer-events:none;
+          transition:opacity .25s ease;
+        }
+        .modal-backdrop.show{
+          opacity:1;
+          pointer-events:auto;
+        }
+        .modal-card{
+          width:100%;
+          max-width:380px;
+          background:var(--paper);
+          border:2px solid var(--ink);
+          box-shadow:0 16px 40px rgba(0,0,0,0.45);
+          padding:28px 24px 24px;
+          position:relative;
+          transform:translateY(14px) scale(0.96);
+          transition:transform .25s cubic-bezier(.2,.8,.2,1);
+          text-align:center;
+          border-radius:4px;
+        }
+        .modal-backdrop.show .modal-card{
+          transform:translateY(0) scale(1);
+        }
+        .modal-card::before{
+          content:'';
+          position:absolute;
+          top:6px; left:6px; right:6px; bottom:6px;
+          border:1px dashed var(--line);
+          pointer-events:none;
+        }
+        .modal-badge{
+          display:inline-flex;
+          align-items:center;
+          gap:6px;
+          padding:4px 10px;
+          background:rgba(178,58,46,0.08);
+          border:1px solid var(--stamp);
+          border-radius:3px;
+          color:var(--stamp);
+          font-size:10px;
+          font-weight:600;
+          letter-spacing:0.12em;
+          text-transform:uppercase;
+          margin-bottom:14px;
+        }
+        .modal-title{
+          font-family:var(--font-display);
+          font-size:22px;
+          font-weight:700;
+          color:var(--ink);
+          margin:0 0 10px;
+          line-height:1.2;
+        }
+        .modal-body{
+          font-family:var(--font-mono);
+          font-size:12px;
+          color:var(--ink-soft);
+          line-height:1.6;
+          margin-bottom:22px;
+        }
+        .modal-actions{
+          display:flex;
+          gap:10px;
+          justify-content:center;
+        }
+        .modal-btn{
+          flex:1;
+          background:var(--ink);
+          color:var(--paper);
+          border:1.5px solid var(--ink);
+          padding:12px 14px;
+          border-radius:3px;
+          font-family:var(--font-mono);
+          font-size:11.5px;
+          font-weight:600;
+          letter-spacing:0.08em;
+          text-transform:uppercase;
+          cursor:pointer;
+          transition:transform .1s ease, background .15s ease;
+        }
+        .modal-btn:active{ transform:scale(0.97); }
+        /* ---------- Full-Screen Ultra-Smooth 3-Second Welcome Splash ---------- */
+        #welcome-splash-overlay{
+          position:fixed;
+          top:0; left:0; width:100vw; height:100vh;
+          background:var(--paper);
+          z-index:999999;
+          display:flex;
+          justify-content:center;
+          align-items:center;
+          padding:24px;
+          overflow:hidden;
+          transition:opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          will-change:opacity, transform;
+        }
+        #welcome-splash-overlay::before{
+          content:'';
+          position:absolute; top:0; left:20px; bottom:0;
+          width:1px;
+          background-image:repeating-linear-gradient(to bottom, var(--line) 0 6px, transparent 6px 12px);
+          opacity:0.6;
+        }
+        #welcome-splash-overlay.fade-out{
+          opacity:0;
+          transform:scale(1.04);
+          pointer-events:none;
+        }
+        .splash-bg-glow{
+          position:absolute;
+          width:350px; height:350px;
+          background:radial-gradient(circle, rgba(156, 127, 30, 0.12) 0%, rgba(178, 58, 46, 0.08) 50%, transparent 70%);
+          border-radius:50%;
+          filter:blur(30px);
+          animation:pulseGlow 3s ease-in-out infinite alternate;
+        }
+        @keyframes pulseGlow{
+          0%{ transform:scale(0.8); opacity:0.6; }
+          100%{ transform:scale(1.3); opacity:1; }
+        }
+        .splash-content{
+          position:relative;
+          z-index:2;
+          width:100%;
+          max-width:360px;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          text-align:center;
+        }
+        .splash-ring-stage{
+          position:relative;
+          width:120px; height:120px;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          margin-bottom:28px;
+          perspective:800px;
+        }
+        .splash-ring-outer{
+          position:absolute;
+          width:120px; height:120px;
+          border:3px dashed var(--brass);
+          border-radius:50%;
+          box-shadow:0 0 15px rgba(156, 127, 30, 0.25);
+          animation:rotateOuter 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          will-change:transform;
+        }
+        @keyframes rotateOuter{
+          0%{ transform:rotate(0deg) scale(0.92); }
+          50%{ transform:rotate(180deg) scale(1.05); }
+          100%{ transform:rotate(360deg) scale(0.92); }
+        }
+        .splash-ring-inner{
+          position:absolute;
+          width:92px; height:92px;
+          border:2px dotted var(--stamp);
+          border-radius:50%;
+          animation:rotateInner 2.2s linear infinite reverse;
+          will-change:transform;
+        }
+        @keyframes rotateInner{
+          0%{ transform:rotate(0deg); }
+          100%{ transform:rotate(360deg); }
+        }
+        .splash-core-seal{
+          width:70px; height:70px;
+          background:var(--paper-2);
+          border:2.5px solid var(--ink);
+          border-radius:50%;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          box-shadow:0 6px 18px rgba(0,0,0,0.15);
+          animation:sealPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          will-change:transform;
+        }
+        @keyframes sealPop{
+          0%{ transform:scale(0) rotate(-180deg); opacity:0; }
+          100%{ transform:scale(1) rotate(0deg); opacity:1; }
+        }
+        .splash-icon{
+          font-size:34px;
+          animation:shieldFloat 2s ease-in-out infinite alternate;
+        }
+        @keyframes shieldFloat{
+          0%{ transform:translateY(-2px); }
+          100%{ transform:translateY(3px); }
+        }
+        .splash-brand-title{
+          font-family:var(--font-display);
+          font-weight:800;
+          font-size:46px;
+          color:var(--ink);
+          margin:0 0 4px;
+          letter-spacing:-0.02em;
+          animation:fadeInUp 0.6s ease 0.2s both;
+        }
+        .splash-brand-title em{
+          font-style:normal;
+          color:var(--stamp);
+        }
+        .splash-tagline{
+          font-family:var(--font-mono);
+          font-size:11px;
+          letter-spacing:0.28em;
+          color:var(--ink-soft);
+          text-transform:uppercase;
+          margin-bottom:32px;
+          font-weight:600;
+          animation:fadeInUp 0.6s ease 0.35s both;
+        }
+        @keyframes fadeInUp{
+          from{ opacity:0; transform:translateY(12px); }
+          to{ opacity:1; transform:translateY(0); }
+        }
+        .splash-loader-box{
+          width:100%;
+          max-width:280px;
+          display:flex;
+          flex-direction:column;
+          align-items:center;
+          gap:12px;
+        }
+        .splash-progress-track{
+          width:100%;
+          height:6px;
+          background:rgba(22, 35, 63, 0.08);
+          border-radius:12px;
+          overflow:hidden;
+          border:1px solid var(--line);
+        }
+        .splash-progress-bar{
+          height:100%;
+          width:0%;
+          background:linear-gradient(90deg, var(--brass) 0%, var(--stamp) 100%);
+          border-radius:12px;
+          box-shadow:0 0 10px rgba(156, 127, 30, 0.4);
+          animation:smoothProgress 2.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          will-change:width;
+        }
+        @keyframes smoothProgress{
+          0%{ width:0%; }
+          40%{ width:55%; }
+          100%{ width:100%; }
+        }
+        .splash-status{
+          font-family:var(--font-mono);
+          font-size:10.5px;
+          font-weight:600;
+          color:var(--ink-soft);
+          letter-spacing:0.08em;
+        }
+        .splash-stamp-seal{
+          margin-top:20px;
+          border:1.5px dashed var(--stamp);
+          background:rgba(178, 58, 46, 0.06);
+          padding:6px 16px;
+          border-radius:20px;
+          font-family:var(--font-mono);
+          font-size:10.5px;
+          font-weight:700;
+          color:var(--stamp);
+          letter-spacing:0.1em;
+          box-shadow:0 4px 12px rgba(178, 58, 46, 0.1);
+          opacity:0;
+          animation:stampPunch 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 2.2s forwards;
+        }
+        @keyframes stampPunch{
+          0%{ opacity:0; transform:scale(1.5) rotate(-6deg); }
+          100%{ opacity:1; transform:scale(1) rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Full-Screen 3-Second Ultra-Smooth Welcome Splash Screen -->
+<div id="welcome-splash-overlay">
+    <div class="splash-bg-glow"></div>
+    <div class="splash-content">
+        <!-- 3D Dual Rotating Rings Container -->
+        <div class="splash-ring-stage">
+            <div class="splash-ring-outer"></div>
+            <div class="splash-ring-inner"></div>
+            <div class="splash-core-seal">
+                <span class="splash-icon">🛡️</span>
+            </div>
+        </div>
+
+        <!-- Animated Typography -->
+        <h1 class="splash-brand-title">Fake<em>Pay</em></h1>
+        <div class="splash-tagline">SIMULATED BLOCKCHAIN LEDGER</div>
+
+        <!-- Ultra-Smooth Progress & Status -->
+        <div class="splash-loader-box">
+            <div class="splash-progress-track">
+                <div class="splash-progress-bar"></div>
+            </div>
+            <div class="splash-status">SYNCHRONIZING SIM-CHAIN NODE...</div>
+        </div>
+
+        <!-- Verification Badge -->
+        <div class="splash-stamp-seal">
+            <span>🟢 LEDGER ENTRY VERIFIED</span>
+        </div>
+    </div>
+</div>
+
+<div id="toast-stack"></div>
+
+<!-- Themed Modal Popup for messages -->
+<div id="popup-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card">
+        <div class="modal-badge">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span id="modal-badge-text">NOT REGISTERED</span>
+        </div>
+        <h3 class="modal-title" id="modal-title">Number Not Present</h3>
+        <div class="modal-body" id="modal-msg">This phone number was not found in our ledger. Please check the number or open a new account.</div>
+        <div class="modal-actions">
+            <button class="modal-btn secondary" id="modal-close-btn" type="button">Dismiss</button>
+            <button class="modal-btn" id="modal-action-btn" type="button">Open Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- Bank Linking Modal (3-Step Flow) -->
+<div id="bank-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card">
+        <div class="modal-badge" style="border-color:var(--brass); color:var(--brass); background:rgba(156,127,30,0.1);">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="10" width="18" height="11" rx="2"/><path d="M7 10V6a5 5 0 0 1 10 0v4"/></svg>
+            <span id="bank-modal-step-badge">STEP 1 OF 3</span>
+        </div>
+        <h3 class="modal-title" id="bank-modal-title">Select Primary Bank</h3>
+        <div class="modal-body" id="bank-modal-desc" style="margin-bottom:14px;">Choose your bank account to link with FakePay.</div>
+        
+        <!-- Step 1: Select Bank -->
+        <div id="bank-step-1" class="bank-step-panel">
+            <div class="ruled-field">
+                <label for="bank-select">Registered Bank</label>
+                <select id="bank-select" style="border:none; background:transparent; font-family:var(--font-mono); font-size:14px; color:var(--ink); padding:6px 0; outline:none; width:100%; cursor:pointer;">
+                    <option value="">Fetching banks...</option>
+                </select>
+            </div>
+            <div class="error-msg" id="bank-step1-error"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button class="modal-btn secondary" id="bank-cancel-btn" type="button">Cancel</button>
+                <button class="modal-btn" id="bank-step1-next-btn" type="button">Next: Set PIN</button>
+            </div>
+        </div>
+
+        <!-- Step 2: Create 4-Digit UPI PIN -->
+        <div id="bank-step-2" class="bank-step-panel" style="display:none;">
+            <div class="selected-bank-chip" id="step2-bank-name" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); background:var(--brass-bg); padding:4px 8px; border-radius:3px; margin-bottom:10px; display:inline-block;">Bank: HDFC Bank</div>
+            <div class="ruled-field">
+                <label for="upi-pin-1">Create 4-Digit UPI PIN</label>
+                <input id="upi-pin-1" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="••••" style="letter-spacing:0.4em; font-size:20px; text-align:center;">
+            </div>
+            <div class="error-msg" id="bank-step2-error"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button class="modal-btn secondary" id="bank-step2-back-btn" type="button">Back</button>
+                <button class="modal-btn" id="bank-step2-next-btn" type="button">Next: Confirm</button>
+            </div>
+        </div>
+
+        <!-- Step 3: Re-enter & Confirm UPI PIN -->
+        <div id="bank-step-3" class="bank-step-panel" style="display:none;">
+            <div class="selected-bank-chip" id="step3-bank-name" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); background:var(--brass-bg); padding:4px 8px; border-radius:3px; margin-bottom:10px; display:inline-block;">Bank: HDFC Bank</div>
+            <div class="ruled-field">
+                <label for="upi-pin-2">Re-enter 4-Digit UPI PIN</label>
+                <input id="upi-pin-2" type="password" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="••••" style="letter-spacing:0.4em; font-size:20px; text-align:center;">
+            </div>
+            <div class="error-msg" id="bank-step3-error"></div>
+            <div class="modal-actions" style="margin-top:14px;">
+                <button class="modal-btn secondary" id="bank-step3-back-btn" type="button">Back</button>
+                <button class="modal-btn" id="bank-submit-btn" type="button">
+                    <span class="btn-text">Connect & Set PIN</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="app">
+
+    <div class="ledger-head">
+        <div class="eyebrow">Ledger secured</div>
+        <h1>Fake<em>Pay</em></h1>
+        <p>A passbook that can't be rewritten. Every rupee moved is entered once, sealed forever.</p>
+        <div class="acct-no">A/C TYPE<b>SIM-CHAIN</b></div>
+    </div>
+
+    <div class="page">
+
+        <div class="tabs">
+            <div class="tab active" data-tab="login">Log in</div>
+            <div class="tab" data-tab="signup">Open account</div>
+        </div>
+
+        <div class="panels">
+
+            <form class="panel active" id="login-panel" novalidate>
+                <div class="ruled-field">
+                    <label for="login-phone">Phone number</label>
+                    <input id="login-phone" type="tel" inputmode="numeric" placeholder="98765 43210" required>
+                </div>
+                <div class="error-msg" id="login-error"></div>
+                <button class="submit-btn" type="submit">
+                    <span class="btn-text">Log in</span>
+                    <span class="spinner"></span>
+                </button>
+            </form>
+
+            <form class="panel" id="signup-panel" novalidate>
+                <div class="ruled-field">
+                    <label for="signup-name">Full name</label>
+                    <input id="signup-name" type="text" placeholder="Rahul Sharma" required>
+                </div>
+                <div class="ruled-field">
+                    <label for="signup-phone">Phone number</label>
+                    <input id="signup-phone" type="tel" inputmode="numeric" placeholder="98765 43210" required>
+                </div>
+                <div class="error-msg" id="signup-error"></div>
+                <button class="submit-btn" type="submit">
+                    <span class="btn-text">Open account</span>
+                    <span class="spinner"></span>
+                </button>
+            </form>
+
+        </div>
+
+        <div class="foot-note">FKP · SIMULATED CURRENCY ONLY · NOT LEGAL TENDER</div>
+    </div>
+
+    <div id="welcome">
+        <!-- Google Pay Style Top Navigation Header Bar -->
+        <div class="gpay-top-bar" id="gpay-top-bar">
+            <div class="gpay-brand-box">
+                <div class="gpay-app-title">🛡️ FakePay</div>
+                <div class="gpay-user-greeting">Welcome, <span id="welcome-name" style="color:var(--stamp); font-weight:700;">there</span></div>
+                <div class="gpay-user-phone" id="welcome-phone">📱 +91 81484XXXXX</div>
+            </div>
+            <div class="gpay-top-actions">
+                <div class="status-badge unlinked" id="welcome-status">
+                    <span>🟡</span> <span>Not Linked</span>
+                </div>
+                <div class="gpay-avatar-btn" id="gpay-avatar-btn" title="Open User Profile &amp; Settings">
+                    <span id="gpay-avatar-initial">J</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call-to-Action Card: Link Your Bank Account (Shown when not linked) -->
+        <div class="cta-card" id="link-bank-cta">
+            <div class="cta-head">
+                <span class="cta-icon">🏦</span>
+                <div>
+                    <h4>Link Your Bank Account</h4>
+                    <p class="cta-desc">Connect your primary bank account to set up your UPI PIN and unlock instant money transfers.</p>
+                </div>
+            </div>
+            <button class="cta-btn" id="add-bank-btn" type="button" onclick="openBankModal()">+ Add Bank Account</button>
+        </div>
+
+        <!-- Linked Bank Account Details Card (Shown after bank account is linked) -->
+        <div class="linked-bank-card" id="linked-bank-card" style="display:none;">
+            <div class="lbc-top">
+                <div class="lbc-left-box">
+                    <div class="lbc-icon-box">🏦</div>
+                    <div class="lbc-details">
+                        <h4 id="linked-bank-name-display">Primary Bank Account</h4>
+                    </div>
+                </div>
+                <span class="lbc-tag"><span>🟢</span> Active &amp; Verified</span>
+            </div>
+            <div class="lbc-bottom">
+                <span class="lbc-upi-label">UPI ID</span>
+                <span class="lbc-upi-val" id="linked-bank-upi-id">phone@fakepay</span>
+            </div>
+        </div>
+
+
+
+        <!-- Quick Action Buttons (Teaser UI) -->
+        <div class="teaser-section">
+            <div class="section-title">Quick Actions</div>
+            <div class="quick-actions-grid">
+                <button class="action-card disabled" data-feature="Send Money" type="button" id="act-send-money">
+                    <div class="action-icon-wrapper">💸</div>
+                    <span class="action-title">Send Money</span>
+                    <span class="action-tag">Disabled</span>
+                </button>
+
+                <button class="action-card disabled" data-feature="Request Money" type="button" id="act-request-money">
+                    <div class="action-icon-wrapper">📥</div>
+                    <span class="action-title">Request Money</span>
+                    <span class="action-tag">Disabled</span>
+                </button>
+
+                <button class="action-card disabled" data-feature="Transaction History" type="button" id="act-history">
+                    <div class="action-icon-wrapper">📜</div>
+                    <span class="action-title">History</span>
+                    <span class="action-tag">Disabled</span>
+                </button>
+
+                <button class="action-card disabled" data-feature="Check Balance" type="button" id="act-check-balance">
+                    <div class="action-icon-wrapper">🏦</div>
+                    <span class="action-title">Check Balance</span>
+                    <span class="action-tag">Disabled</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- Send Money Modal -->
+<div id="send-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card">
+        <div class="modal-badge" style="border-color:var(--ink); color:var(--ink); background:rgba(22,35,63,0.08);">
+            <span>💸 INSTANT TRANSFER</span>
+        </div>
+        <h3 class="modal-title">Send Money</h3>
+        <div class="modal-body" style="margin-bottom:14px;">Transfer money securely using your linked bank account.</div>
+        
+        <form id="send-form" style="display:flex; flex-direction:column; gap:12px; text-align:left;">
+            <div class="ruled-field">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2px;">
+                    <label for="send-receiver-phone">Receiver Phone Number</label>
+                    <button type="button" id="open-qr-scanner-btn" style="background:var(--brass-bg); border:1px solid var(--brass); color:var(--brass); padding:3px 8px; border-radius:4px; font-family:var(--font-mono); font-size:10px; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all .15s ease;">
+                        <span>📷</span> Scan QR
+                    </button>
+                </div>
+                <input id="send-receiver-phone" type="tel" inputmode="numeric" placeholder="e.g., 9876543210" required>
+            </div>
+            <div class="ruled-field">
+                <label for="send-amount">Amount (₹)</label>
+                <input id="send-amount" type="number" step="0.01" min="1" placeholder="e.g., 600.00" required>
+            </div>
+            <div class="error-msg" id="send-error"></div>
+            <div class="modal-actions" style="margin-top:10px;">
+                <button class="modal-btn secondary" id="send-close-btn" type="button">Cancel</button>
+                <button class="modal-btn submit-btn" type="submit" id="send-submit-btn">
+                    <span class="btn-text">Pay Now</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Dedicated Transfer UPI PIN Modal (Step 2) -->
+<div id="send-pin-modal" class="modal-backdrop" role="dialog" aria-modal="true" style="z-index:125;">
+    <div class="modal-card" style="max-width:380px; text-align:center;">
+        <div class="modal-badge" style="border-color:var(--ink); color:var(--ink); background:rgba(22,35,63,0.08);">
+            <span>🔐 UPI SECURITY VERIFICATION</span>
+        </div>
+        <h3 class="modal-title">Enter 4-Digit UPI PIN</h3>
+        <div class="modal-body" style="margin-bottom:14px;">
+            Paying <b style="font-size:16px; color:var(--ink);" id="transfer-summary-amount">₹0.00</b> to <b id="transfer-summary-payee">+91 XXXXXXXXXX</b>
+        </div>
+
+        <form id="send-pin-form" novalidate>
+            <div class="error-msg" id="send-pin-error" style="margin-bottom:12px;"></div>
+            <div class="ruled-field" style="margin-bottom:14px;">
+                <label for="transfer-upi-pin">4-Digit UPI PIN</label>
+                <input id="transfer-upi-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" required style="letter-spacing:0.3em; font-size:24px; text-align:center;">
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="send-pin-cancel-btn" type="button">Cancel</button>
+                <button class="modal-btn submit-btn" type="submit" id="send-pin-submit-btn">
+                    <span class="btn-text">Proceed Payment</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Receive / Request Money Modal -->
+<div id="receive-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card">
+        <div class="modal-badge" style="border-color:#2E8B57; color:#2E8B57; background:rgba(46,139,87,0.1);">
+            <span>📥 RECEIVE PAYMENTS</span>
+        </div>
+        <h3 class="modal-title">Receive & Request</h3>
+        <div class="modal-body" style="margin-bottom:14px;">Share your FakePay UPI details or scan the QR code to receive instant funds.</div>
+        
+        <div style="background:var(--paper-2); border:1.5px dashed var(--line); padding:16px; border-radius:6px; margin-bottom:14px;">
+            <div style="width:140px; height:140px; margin:0 auto 12px; background:#FFFFFF; border:2px solid var(--ink); border-radius:8px; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(0,0,0,0.12); padding:6px; overflow:hidden;">
+                <img id="receive-qr-img" src="" alt="UPI Receiver QR Code" style="width:100%; height:100%; object-fit:contain;" />
+            </div>
+            <div style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--ink);" id="receive-user-name">User Name</div>
+            <div style="font-family:var(--font-mono); font-size:11px; color:var(--brass); margin-top:2px;" id="receive-upi-id">phone@fakepay</div>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="modal-btn" id="receive-close-btn" type="button" style="width:100%;">Close</button>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Real Camera QR Scanner Modal for Sender -->
+<div id="qr-scanner-modal" class="modal-backdrop" role="dialog" aria-modal="true" style="z-index:120;">
+    <div class="modal-card" style="max-width:380px;">
+        <div class="modal-badge" style="border-color:var(--ink); color:var(--ink); background:rgba(22,35,63,0.08);">
+            <span>📷 REAL CAMERA SCANNER</span>
+        </div>
+        <h3 class="modal-title">Scan Payee QR Code</h3>
+        <div class="modal-body" style="margin-bottom:14px;">Point camera at FakePay QR code or select an image file to auto-fill payee.</div>
+
+        <!-- Inline Error Banner for Missing / Invalid QR Code -->
+        <div id="qr-error-banner" style="display:none; background:rgba(178,58,46,0.12); border:1.5px dashed var(--stamp); color:var(--stamp); font-family:var(--font-mono); font-size:11.5px; padding:10px 12px; border-radius:6px; margin-bottom:14px; text-align:center; line-height:1.5;">
+            ⚠️ <b>No QR Code Detected</b><br>
+            <span style="font-size:10.5px; opacity:0.9;" id="qr-error-banner-text">The selected image does not contain a clear QR code. Please take a clearer photo or pick a valid QR image.</span>
+        </div>
+        
+        <!-- Live Camera Viewfinder Box with Laser Animation -->
+        <div style="position:relative; width:220px; height:220px; margin:0 auto 14px; background:#0F0F0D; border:2px solid var(--ink); border-radius:12px; overflow:hidden; box-shadow:0 6px 20px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center;">
+            
+            <!-- Live Camera Video Feed -->
+            <video id="qr-video" autoplay playsinline style="width:100%; height:100%; object-fit:cover; position:absolute; top:0; left:0; z-index:1; display:none;"></video>
+            <canvas id="qr-canvas" style="display:none;"></canvas>
+
+            <!-- Corner Brackets -->
+            <div style="position:absolute; top:10px; left:10px; width:24px; height:24px; border-top:3px solid #2E8B57; border-left:3px solid #2E8B57; z-index:3;"></div>
+            <div style="position:absolute; top:10px; right:10px; width:24px; height:24px; border-top:3px solid #2E8B57; border-right:3px solid #2E8B57; z-index:3;"></div>
+            <div style="position:absolute; bottom:10px; left:10px; width:24px; height:24px; border-bottom:3px solid #2E8B57; border-left:3px solid #2E8B57; z-index:3;"></div>
+            <div style="position:absolute; bottom:10px; right:10px; width:24px; height:24px; border-bottom:3px solid #2E8B57; border-right:3px solid #2E8B57; z-index:3;"></div>
+            
+            <!-- Scanning Laser Line -->
+            <div class="scanner-laser" style="z-index:4;"></div>
+            
+            <!-- Camera Status Placeholder -->
+            <div id="qr-camera-placeholder" style="font-family:var(--font-mono); font-size:11px; color:#F6F1E4; text-align:center; z-index:2; padding:0 12px; cursor:pointer;">
+                <span style="font-size:36px; display:block; margin-bottom:8px;">📲</span>
+                Starting Camera Feed...
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px; width:100%;">
+            <input type="file" id="qr-file-input" accept="image/*" capture="environment" style="display:none;">
+            <button class="modal-btn" id="qr-upload-btn" type="button" style="font-size:13px; padding:12px 16px; width:100%; display:flex; justify-content:center; align-items:center; gap:6px; letter-spacing:0.05em; font-weight:700;">
+                📸 SCAN ME
+            </button>
+        </div>
+
+        <div class="modal-actions">
+            <button class="modal-btn secondary" id="qr-scanner-close-btn" type="button">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Full-Screen Google Pay Style Payment Success Screen Overlay -->
+<div id="gpay-success-overlay" class="gpay-overlay-backdrop">
+    <div class="gpay-success-stage">
+        <div class="gpay-ripple-ring ring-1"></div>
+        <div class="gpay-ripple-ring ring-2"></div>
+        <div class="gpay-ripple-ring ring-3"></div>
+
+        <div class="gpay-tick-circle-box">
+            <svg class="gpay-tick-svg" viewBox="0 0 80 80">
+                <circle class="gpay-tick-circle" cx="40" cy="40" r="36" fill="none"/>
+                <path class="gpay-tick-check" fill="none" d="M22 41.5l11 11L58 28.5"/>
+            </svg>
+        </div>
+
+        <div class="gpay-succ-badge" id="gpay-succ-badge">
+            <span>🟢 PAYMENT SUCCESSFUL</span>
+        </div>
+
+        <div class="gpay-succ-amount" id="gpay-succ-amount">₹500.00</div>
+        <div class="gpay-succ-payee" id="gpay-succ-payee">Paid to +91 9876543210</div>
+        
+        <div class="gpay-succ-meta-box">
+            <div class="gpay-meta-line" id="gpay-succ-bank">Debited from SBI</div>
+        </div>
+
+        <button class="gpay-done-btn" id="gpay-succ-done-btn" type="button">Done</button>
+    </div>
+</div>
+
+<!-- Google Pay User Profile & Settings Drawer Modal -->
+<div id="profile-drawer-modal" class="modal-backdrop" role="dialog" aria-modal="true" style="z-index:130;">
+    <div class="modal-card" style="max-width:380px; text-align:center;">
+        <div class="modal-badge" style="border-color:var(--brass); color:var(--brass); background:rgba(156,127,30,0.1);">
+            <span>👤 USER PROFILE &amp; SECURITY</span>
+        </div>
+
+        <div style="width:72px; height:72px; margin:14px auto 10px; background:linear-gradient(135deg, var(--ink) 0%, #2A3B5C 100%); color:var(--paper); border:2.5px solid var(--brass); border-radius:50%; display:flex; align-items:center; justify-content:center; font-family:var(--font-display); font-size:32px; font-weight:800; box-shadow:0 6px 18px rgba(0,0,0,0.18);">
+            <span id="profile-drawer-initial">J</span>
+        </div>
+
+        <h3 class="modal-title" id="profile-drawer-name" style="margin-bottom:2px;">User Name</h3>
+        <div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); margin-bottom:14px;" id="profile-drawer-phone">+91 8148410788</div>
+
+        <div style="background:var(--paper-2); border:1.5px dashed var(--line); padding:14px; border-radius:8px; margin-bottom:16px; text-align:left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); font-weight:700;">BANK CONNECTION</span>
+                <span class="status-badge unlinked" id="profile-drawer-status"><span>🟡</span> Not Linked</span>
+            </div>
+            <div style="font-family:var(--font-mono); font-size:11.5px; color:var(--ink); font-weight:600;" id="profile-drawer-bank">No Primary Bank Account</div>
+        </div>
+
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:16px; display:flex; align-items:center; justify-content:center; gap:6px;">
+            <span>🔒</span> <span>Sim-Chain Sealed Passbook • Immutable Entry</span>
+        </div>
+
+        <div class="modal-actions" style="display:flex; gap:10px;">
+            <button class="modal-btn secondary" id="profile-drawer-close-btn" type="button" style="flex:1;">Close</button>
+            <button class="modal-btn" id="card-logout-btn" type="button" style="flex:1; background:var(--stamp); border-color:var(--stamp); color:#FFFFFF;">
+                <span>🚪</span> Log out
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History Ledger Modal -->
+<div id="history-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:440px; max-height:85vh; display:flex; flex-direction:column;">
+        <div class="modal-badge" style="border-color:var(--brass); color:var(--brass); background:rgba(156,127,30,0.1);">
+            <span>📜 BLOCKCHAIN LEDGER</span>
+        </div>
+        <h3 class="modal-title">Transaction History</h3>
+        <div class="modal-body" style="margin-bottom:12px;">Verified blockchain ledger entries sealed on Sim-Chain.</div>
+        
+        <div id="tx-history-list" style="overflow-y:auto; max-height:360px; padding-right:4px; display:flex; flex-direction:column; gap:10px; margin-bottom:14px; text-align:left;">
+            <!-- Rendered dynamically -->
+        </div>
+        
+        <div class="modal-actions" style="margin-top:auto;">
+            <button class="modal-btn secondary" id="history-close-btn" type="button">Close</button>
+            <button class="modal-btn" id="refresh-history-btn" type="button">Refresh Ledger</button>
+        </div>
+    </div>
+</div>
+
+<!-- Check Balance PIN Verification Modal -->
+<div id="check-balance-pin-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:380px;">
+        <div class="modal-badge" style="border-color:var(--ink); color:var(--ink); background:rgba(22,35,63,0.08);">
+            <span>🔐 UPI SECURITY VERIFICATION</span>
+        </div>
+        <h3 class="modal-title">Enter 4-Digit UPI PIN</h3>
+        <div class="modal-body" style="margin-bottom:14px;">Enter your 4-digit UPI PIN to view account balance for <b id="pin-modal-bank-name">Primary Bank Account</b>.</div>
+
+        <form id="check-bal-pin-form" novalidate>
+            <div class="error-msg" id="check-bal-pin-error" style="margin-bottom:12px;"></div>
+            <div class="ruled-field" style="margin-bottom:14px;">
+                <label for="check-bal-pin">4-Digit UPI PIN</label>
+                <input id="check-bal-pin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" required style="letter-spacing:0.3em; font-size:24px; text-align:center;">
+            </div>
+
+            <div class="modal-actions">
+                <button class="modal-btn secondary" id="check-bal-pin-cancel-btn" type="button">Cancel</button>
+                <button class="modal-btn submit-btn" type="submit">
+                    <span class="btn-text">Verify &amp; Check Balance</span>
+                    <span class="spinner"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Bank Balance Result Modal -->
+<div id="balance-result-modal" class="modal-backdrop" role="dialog" aria-modal="true">
+    <div class="modal-card" style="max-width:380px; text-align:center;">
+        <div class="modal-badge" style="border-color:#2E8B57; color:#2E8B57; background:rgba(46,139,87,0.1);">
+            <span>🏦 BANK BALANCE REPORT</span>
+        </div>
+        <h3 class="modal-title" id="bal-res-bank-title" style="margin-bottom:4px;">State Bank of India</h3>
+        <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); margin-bottom:16px;" id="bal-res-upi-id">UPI ID: phone@fakepay</div>
+
+        <div style="background:var(--paper-2); border:2px dashed var(--line); padding:20px; border-radius:12px; margin-bottom:18px;">
+            <div style="font-family:var(--font-mono); font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px;">Available Bank Balance</div>
+            <div style="font-family:var(--font-display); font-size:36px; font-weight:800; color:var(--ink);" id="bal-res-amount-display">₹5,000.00</div>
+        </div>
+
+        <div style="display:flex; justify-content:center; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; color:#2E8B57; margin-bottom:18px;">
+            <span>🟢</span> <span>Verified via 4-Digit UPI PIN</span>
+        </div>
+
+        <div class="modal-actions">
+            <button class="modal-btn" id="bal-res-close-btn" type="button" style="width:100%;">Done</button>
+        </div>
+    </div>
+</div>
+
+<!-- Block Details Inspector Modal -->
+<div id="block-modal" class="modal-backdrop" role="dialog" aria-modal="true" style="z-index:110;">
+    <div class="modal-card" style="max-width:380px;">
+        <div class="modal-badge" style="border-color:var(--ink); color:var(--ink); background:rgba(22,35,63,0.08);">
+            <span>⛓ BLOCK SHA-256</span>
+        </div>
+        <h3 class="modal-title">Block Details</h3>
+        <div id="block-details-content" style="font-family:var(--font-mono); font-size:11px; text-align:left; background:var(--paper-2); border:1px dashed var(--line); padding:12px; border-radius:4px; margin-bottom:14px; line-height:1.6; word-break:break-all;">
+            <!-- Rendered dynamically -->
+        </div>
+        <div class="modal-actions">
+            <button class="modal-btn" id="block-close-btn" type="button">Close Block</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function(){
+      // 3-Second Welcome Splash Screen Handler
+      const splash = document.getElementById('welcome-splash-overlay');
+      if(splash){
+        setTimeout(() => {
+          splash.classList.add('fade-out');
+          setTimeout(() => {
+            splash.style.display = 'none';
+          }, 500);
+        }, 3000);
+      }
+
+      const HOST_IP = window.location.hostname || 'localhost';
+      const BACKEND_BASE = `http://${HOST_IP}:8080`;
+      const API_BASE = `${BACKEND_BASE}/api/homepage`;
+
+      const tabs = document.querySelectorAll('.tab');
+      const panels = document.querySelectorAll('.panel');
+
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          tabs.forEach(t => t.classList.remove('active'));
+          panels.forEach(p => p.classList.remove('active'));
+          tab.classList.add('active');
+          document.getElementById(tab.dataset.tab + '-panel').classList.add('active');
+        });
+      });
+
+      document.querySelectorAll('.ruled-field input').forEach(inp => {
+        inp.addEventListener('focus', () => inp.closest('.ruled-field').classList.add('focus'));
+        inp.addEventListener('blur', () => inp.closest('.ruled-field').classList.remove('focus'));
+      });
+
+      function setLoading(btn, isLoading){ btn.classList.toggle('loading', isLoading); }
+
+      function showToast(message, type){
+        const stack = document.getElementById('toast-stack');
+        const toast = document.createElement('div');
+        toast.className = 'toast' + (type === 'error' ? ' error' : '');
+        const label = document.createElement('div');
+        label.className = 'toast-label';
+        label.textContent = type === 'error' ? 'entry rejected' : 'entry confirmed';
+        const msg = document.createElement('div');
+        msg.className = 'toast-msg';
+        msg.textContent = message;
+        toast.appendChild(label);
+        toast.appendChild(msg);
+        stack.appendChild(toast);
+        setTimeout(() => {
+          toast.classList.add('leaving');
+          setTimeout(() => toast.remove(), 260);
+        }, 3200);
+      }
+
+      function showModalPopup(options){
+        const modal = document.getElementById('popup-modal');
+        document.getElementById('modal-title').textContent = options.title || 'Attention';
+        document.getElementById('modal-msg').textContent = options.message || '';
+        document.getElementById('modal-badge-text').textContent = options.badgeText || 'ATTENTION';
+
+        const actionBtn = document.getElementById('modal-action-btn');
+        if(options.showActionBtn !== false){
+          actionBtn.style.display = 'block';
+          actionBtn.textContent = options.actionText || 'Continue';
+          actionBtn.onclick = () => {
+            closeModalPopup();
+            if(typeof options.onAction === 'function'){
+              options.onAction();
+            }
+          };
+        } else {
+          actionBtn.style.display = 'none';
+        }
+
+        modal.classList.add('show');
+      }
+
+      function closeModalPopup(){
+        document.getElementById('popup-modal').classList.remove('show');
+      }
+
+      document.getElementById('modal-close-btn').addEventListener('click', closeModalPopup);
+      document.getElementById('popup-modal').addEventListener('click', (e) => {
+        if(e.target === document.getElementById('popup-modal')){
+          closeModalPopup();
+        }
+      });
+      document.addEventListener('keydown', (e) => {
+        if(e.key === 'Escape') closeModalPopup();
+      });
+
+      async function extractErrorMessage(res){
+        try {
+          const data = await res.json();
+          if(data && data.message) return data.message;
+          return 'Something went wrong. Try again.';
+        } catch(e){
+          return 'Something went wrong. Try again.';
+        }
+      }
+
+      function showError(elId, message){
+        const el = document.getElementById(elId);
+        el.textContent = message;
+        el.classList.add('show');
+      }
+      function clearError(elId){
+        const el = document.getElementById(elId);
+        el.textContent = '';
+        el.classList.remove('show');
+      }
+
+      let isBankLinked = false;
+      let linkedBankName = '';
+      let currentBankStep = 1;
+      let selectedBankName = '';
+      let firstEnteredPin = '';
+      let currentUserPhone = '';
+
+      async function fetchAndPopulateBankNames() {
+        const select = document.getElementById('bank-select');
+        if(!select) return;
+        select.innerHTML = '<option value="">Fetching banks...</option>';
+        try {
+          const res = await fetch(`${BACKEND_BASE}/api/bank/all-names`);
+          if(!res.ok) throw new Error('Failed to load banks');
+          const bankNames = await res.json();
+          select.innerHTML = '';
+          if(Array.isArray(bankNames) && bankNames.length > 0) {
+            bankNames.forEach(name => {
+              const opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              select.appendChild(opt);
+            });
+          } else {
+            select.innerHTML = '<option value="">No banks registered</option>';
+          }
+        } catch(e) {
+          select.innerHTML = `
+            <option value="HDFC Bank">HDFC Bank</option>
+            <option value="State Bank of India (SBI)">State Bank of India (SBI)</option>
+            <option value="ICICI Bank">ICICI Bank</option>
+            <option value="Axis Bank">Axis Bank</option>
+          `;
+        }
+      }
+
+      function showBankStep(step){
+        currentBankStep = step;
+        const step1 = document.getElementById('bank-step-1');
+        const step2 = document.getElementById('bank-step-2');
+        const step3 = document.getElementById('bank-step-3');
+        if(step1) step1.style.display = (step === 1) ? 'block' : 'none';
+        if(step2) step2.style.display = (step === 2) ? 'block' : 'none';
+        if(step3) step3.style.display = (step === 3) ? 'block' : 'none';
+
+        const badge = document.getElementById('bank-modal-step-badge');
+        const title = document.getElementById('bank-modal-title');
+        const desc = document.getElementById('bank-modal-desc');
+
+        if(step === 1){
+          if(badge) badge.textContent = 'STEP 1 OF 3';
+          if(title) title.textContent = 'Select Primary Bank';
+          if(desc) desc.textContent = 'Choose your bank account to link with FakePay.';
+        } else if(step === 2){
+          if(badge) badge.textContent = 'STEP 2 OF 3';
+          if(title) title.textContent = 'Set 4-Digit UPI PIN';
+          if(desc) desc.textContent = 'Create a secure 4-digit PIN for your bank transactions.';
+          const chip2 = document.getElementById('step2-bank-name');
+          if(chip2) chip2.textContent = 'Bank: ' + selectedBankName;
+          const pin1Input = document.getElementById('upi-pin-1');
+          if(pin1Input) { pin1Input.value = ''; pin1Input.focus(); }
+        } else if(step === 3){
+          if(badge) badge.textContent = 'STEP 3 OF 3';
+          if(title) title.textContent = 'Confirm 4-Digit UPI PIN';
+          if(desc) desc.textContent = 'Re-enter your 4-digit UPI PIN to confirm and connect.';
+          const chip3 = document.getElementById('step3-bank-name');
+          if(chip3) chip3.textContent = 'Bank: ' + selectedBankName;
+          const pin2Input = document.getElementById('upi-pin-2');
+          if(pin2Input) { pin2Input.value = ''; pin2Input.focus(); }
+        }
+      }
+
+      function openBankModal(){
+        if(isBankLinked){
+          showToast(`Bank already linked (${linkedBankName}).`, 'success');
+          return;
+        }
+        const modal = document.getElementById('popup-modal');
+        if(modal) modal.classList.remove('show');
+        showBankStep(1);
+        const bankModal = document.getElementById('bank-modal');
+        if(bankModal) bankModal.classList.add('show');
+        fetchAndPopulateBankNames();
+      }
+
+      window.openBankModal = openBankModal;
+
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('#add-bank-btn');
+        if(btn){
+          e.preventDefault();
+          openBankModal();
+        }
+      });
+
+      function closeBankModal(){
+        const bankModal = document.getElementById('bank-modal');
+        if(bankModal) bankModal.classList.remove('show');
+        clearError('bank-step1-error');
+        clearError('bank-step2-error');
+        clearError('bank-step3-error');
+        firstEnteredPin = '';
+        showBankStep(1);
+      }
+
+      const bankCancelBtn = document.getElementById('bank-cancel-btn');
+      if(bankCancelBtn) bankCancelBtn.addEventListener('click', closeBankModal);
+
+      const bankModalEl = document.getElementById('bank-modal');
+      if(bankModalEl){
+        bankModalEl.addEventListener('click', (e) => {
+          if(e.target === bankModalEl) closeBankModal();
+        });
+      }
+
+      const step1NextBtn = document.getElementById('bank-step1-next-btn');
+      if(step1NextBtn){
+        step1NextBtn.addEventListener('click', () => {
+          clearError('bank-step1-error');
+          const sel = document.getElementById('bank-select').value;
+          if(!sel || sel === 'Fetching banks...' || sel === 'No banks registered'){
+            showError('bank-step1-error', 'Please select a valid bank.');
+            return;
+          }
+          selectedBankName = sel;
+          showBankStep(2);
+        });
+      }
+
+      const step2NextBtn = document.getElementById('bank-step2-next-btn');
+      if(step2NextBtn){
+        step2NextBtn.addEventListener('click', () => {
+          clearError('bank-step2-error');
+          const pin1 = document.getElementById('upi-pin-1').value.trim();
+          if(!pin1 || !/^\d{4}$/.test(pin1)){
+            showError('bank-step2-error', 'PIN must be exactly 4 digits.');
+            return;
+          }
+          firstEnteredPin = pin1;
+          showBankStep(3);
+        });
+      }
+
+      const step2BackBtn = document.getElementById('bank-step2-back-btn');
+      if(step2BackBtn){
+        step2BackBtn.addEventListener('click', () => {
+          showBankStep(1);
+        });
+      }
+
+      const step3BackBtn = document.getElementById('bank-step3-back-btn');
+      if(step3BackBtn){
+        step3BackBtn.addEventListener('click', () => {
+          showBankStep(2);
+        });
+      }
+
+      const bankSubmitBtn = document.getElementById('bank-submit-btn');
+      if(bankSubmitBtn){
+        bankSubmitBtn.addEventListener('click', async () => {
+          clearError('bank-step3-error');
+          const pin2 = document.getElementById('upi-pin-2').value.trim();
+          if(!pin2 || !/^\d{4}$/.test(pin2)){
+            showError('bank-step3-error', 'PIN must be exactly 4 digits.');
+            return;
+          }
+          if(pin2 !== firstEnteredPin){
+            showError('bank-step3-error', 'UPI PINs do not match. Please try again.');
+            const pin2Input = document.getElementById('upi-pin-2');
+            if(pin2Input) { pin2Input.value = ''; pin2Input.focus(); }
+            return;
+          }
+
+          setLoading(bankSubmitBtn, true);
+          try {
+            const res = await fetch(`${BACKEND_BASE}/api/bank-user/connect-bank`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNo: currentUserPhone,
+                bankName: selectedBankName,
+                upiPin: firstEnteredPin
+              })
+            });
+
+            if(!res.ok){
+              const msg = await extractErrorMessage(res);
+              throw new Error(msg);
+            }
+
+            const linkedAccount = await res.json();
+            isBankLinked = true;
+            linkedBankName = selectedBankName;
+            localStorage.setItem('fakepay_linked_bank_' + currentUserPhone, selectedBankName);
+
+            closeBankModal();
+            applyLinkedUI(selectedBankName, linkedAccount ? linkedAccount.balance : 5000);
+
+            showGPaySuccessOverlay({
+              amount: selectedBankName,
+              payee: 'Bank Account Linked & Verified',
+              bank: 'UPI ID: ' + (currentUserPhone ? currentUserPhone.replace(/\D/g, '') : 'phone') + '@fakepay',
+              ref: '4-Digit UPI PIN Configured • Sim-Chain Sealed',
+              badge: '🏦 BANK LINKED SUCCESSFULLY',
+              soundType: 'bank'
+            });
+
+            showToast(`${selectedBankName} linked successfully! UPI PIN created.`, 'success');
+          } catch(err){
+            const errMsg = err.message || 'Failed to connect bank. Try again.';
+            showError('bank-step3-error', errMsg);
+            showToast(errMsg, 'error');
+          } finally {
+            setLoading(bankSubmitBtn, false);
+          }
+        });
+      }
+
+
+
+      let isBalanceHidden = false;
+      let rawBalanceValue = 5000;
+
+      function applyLinkedUI(bankName, balance){
+        isBankLinked = true;
+        linkedBankName = bankName;
+
+        const ctaCard = document.getElementById('link-bank-cta');
+        if(ctaCard) ctaCard.style.display = 'none';
+
+        const linkedCard = document.getElementById('linked-bank-card');
+        if(linkedCard){
+          linkedCard.style.display = 'block';
+          const nameDisplay = document.getElementById('linked-bank-name-display');
+          if(nameDisplay) nameDisplay.textContent = bankName || 'Primary Bank Account';
+          const upiDisplay = document.getElementById('linked-bank-upi-id');
+          if(upiDisplay) upiDisplay.textContent = `${currentUserPhone}@fakepay`;
+        }
+
+        const balanceCard = document.getElementById('balance-card-container');
+        if(balanceCard) balanceCard.style.display = 'flex';
+
+        const topBankName = document.getElementById('top-card-bank-name');
+        if(topBankName) topBankName.textContent = bankName || 'Primary Bank Account';
+
+        const statusEl = document.getElementById('welcome-status');
+        if(statusEl){
+          statusEl.className = 'status-badge linked';
+          statusEl.innerHTML = '<span>🟢</span> <span>Active</span>';
+        }
+
+        document.querySelectorAll('.action-card').forEach(card => {
+          card.classList.remove('disabled');
+          const tag = card.querySelector('.action-tag');
+          if(tag) tag.textContent = 'Active';
+        });
+      }
+
+      function openCheckBalanceModal(){
+        if(!isBankLinked){
+          showModalPopup({
+            title: 'Bank Account Required',
+            message: 'Link your bank account first to check balance!',
+            badgeText: 'FEATURE LOCKED',
+            actionText: '+ Add Bank Account',
+            showActionBtn: true,
+            onAction: () => openBankModal()
+          });
+          return;
+        }
+
+        const bankNameEl = document.getElementById('pin-modal-bank-name');
+        if(bankNameEl) bankNameEl.textContent = linkedBankName || 'Primary Bank Account';
+        
+        clearError('check-bal-pin-error');
+        const form = document.getElementById('check-bal-pin-form');
+        if(form) form.reset();
+        
+        document.getElementById('check-balance-pin-modal').classList.add('show');
+      }
+
+      const openCheckBalBtn = document.getElementById('open-check-bal-modal-btn');
+      if(openCheckBalBtn) openCheckBalBtn.addEventListener('click', openCheckBalanceModal);
+
+      const checkBalPinCancelBtn = document.getElementById('check-bal-pin-cancel-btn');
+      if(checkBalPinCancelBtn) checkBalPinCancelBtn.addEventListener('click', () => {
+        document.getElementById('check-balance-pin-modal').classList.remove('show');
+      });
+
+      const balResCloseBtn = document.getElementById('bal-res-close-btn');
+      if(balResCloseBtn) balResCloseBtn.addEventListener('click', () => {
+        document.getElementById('balance-result-modal').classList.remove('show');
+      });
+
+      const checkBalPinForm = document.getElementById('check-bal-pin-form');
+      if(checkBalPinForm){
+        checkBalPinForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearError('check-bal-pin-error');
+          const btn = checkBalPinForm.querySelector('button[type="submit"]');
+          const pin = document.getElementById('check-bal-pin').value.trim();
+
+          if(!pin || pin.length < 4){
+            showError('check-bal-pin-error', 'Please enter your 4-digit UPI PIN.');
+            return;
+          }
+
+          const userObj = JSON.parse(localStorage.getItem('fakepay_user') || '{}');
+          const activePhone = currentUserPhone || userObj.phoneNo || userObj.phone || localStorage.getItem('fakepay_user_phone') || '';
+          const cleanP = activePhone.replace(/\D/g, '');
+
+          if(!cleanP){
+            showError('check-bal-pin-error', 'User phone session expired. Please log in again.');
+            return;
+          }
+
+          if(btn) setLoading(btn, true);
+
+          try {
+            const res = await fetch(`${BACKEND_BASE}/api/bank-user/check-balance`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                phoneNo: cleanP,
+                upiPin: pin
+              })
+            });
+
+            if(!res.ok){
+              const msg = await extractErrorMessage(res);
+              throw new Error(msg);
+            }
+
+            const balData = await res.json();
+            document.getElementById('check-balance-pin-modal').classList.remove('show');
+            checkBalPinForm.reset();
+
+            const bankTitle = document.getElementById('bal-res-bank-title');
+            if(bankTitle) bankTitle.textContent = balData.bankName || linkedBankName || 'Primary Bank Account';
+
+            const upiIdDisplay = document.getElementById('bal-res-upi-id');
+            if(upiIdDisplay) upiIdDisplay.textContent = `UPI ID: ${cleanP}@fakepay`;
+
+            const amtDisplay = document.getElementById('bal-res-amount-display');
+            if(amtDisplay){
+              const formatted = parseFloat(balData.balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              amtDisplay.textContent = '₹' + formatted;
+            }
+
+            document.getElementById('balance-result-modal').classList.add('show');
+            showToast('UPI PIN Verified! Live bank balance fetched.', 'success');
+          } catch(err){
+            const errMsg = err.message || 'Incorrect 4-Digit UPI PIN. Try again.';
+            showError('check-bal-pin-error', '⚠️ ' + errMsg);
+            showToast(errMsg, 'error');
+
+            const pinInput = document.getElementById('check-bal-pin');
+            if(pinInput) {
+              pinInput.value = '';
+              pinInput.classList.remove('shake-error');
+              void pinInput.offsetWidth;
+              pinInput.classList.add('shake-error');
+              pinInput.focus();
+            }
+          } finally {
+            if(btn) setLoading(btn, false);
+          }
+        });
+      }
+
+      // Quick action buttons handlers
+      document.querySelectorAll('.action-card').forEach(card => {
+        card.addEventListener('click', () => {
+          const featureName = card.dataset.feature || 'transfers';
+          if(!isBankLinked){
+            showModalPopup({
+              title: 'Bank Account Required',
+              message: 'Link your bank account first to enable transfers!',
+              badgeText: 'FEATURE LOCKED',
+              actionText: '+ Add Bank Account',
+              showActionBtn: true,
+              onAction: () => {
+                openBankModal();
+              }
+            });
+            return;
+          }
+
+          if(featureName === 'Send Money'){
+            clearError('send-error');
+            document.getElementById('send-form').reset();
+            document.getElementById('send-modal').classList.add('show');
+          } else if(featureName === 'Request Money'){
+            const nameEl = document.getElementById('receive-user-name');
+            const upiEl = document.getElementById('receive-upi-id');
+            const qrImg = document.getElementById('receive-qr-img');
+            const welcomeName = document.getElementById('welcome-name').textContent;
+            
+            if(nameEl) nameEl.textContent = welcomeName;
+            if(upiEl) upiEl.textContent = `${currentUserPhone}@fakepay`;
+            if(qrImg) qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=fakepay://pay?phone=${currentUserPhone}`;
+            
+            document.getElementById('receive-modal').classList.add('show');
+          } else if(featureName === 'Transaction History'){
+            fetchAndRenderHistory();
+            document.getElementById('history-modal').classList.add('show');
+          } else if(featureName === 'Check Balance'){
+            openCheckBalanceModal();
+          }
+        });
+      });
+
+      // Real Camera QR Scanner Handlers
+      let cameraStream = null;
+      let qrScanAnimationId = null;
+
+      async function startCameraScanner(){
+        const video = document.getElementById('qr-video');
+        const placeholder = document.getElementById('qr-camera-placeholder');
+        if(!video) return;
+
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'environment' }
+            });
+            video.srcObject = cameraStream;
+            video.style.display = 'block';
+            if(placeholder) placeholder.style.display = 'none';
+
+            await video.play();
+            requestAnimationFrame(scanQrFrame);
+          } else {
+            throw new Error('getUserMedia not available on HTTP');
+          }
+        } catch(err){
+          console.warn('Camera stream error (HTTP fallback):', err);
+          if(placeholder) {
+            placeholder.style.display = 'block';
+            placeholder.innerHTML = '<span style="font-size:36px; display:block; margin-bottom:8px;">📸</span><b>Tap here to open Phone Camera</b><br><span style="font-size:10px; opacity:0.85; margin-top:4px; display:block;">Take a photo or pick QR from gallery</span>';
+          }
+        }
+      }
+
+      function stopCameraScanner(){
+        if(qrScanAnimationId){
+          cancelAnimationFrame(qrScanAnimationId);
+          qrScanAnimationId = null;
+        }
+        if(cameraStream){
+          cameraStream.getTracks().forEach(track => track.stop());
+          cameraStream = null;
+        }
+        const video = document.getElementById('qr-video');
+        if(video){
+          video.pause();
+          video.srcObject = null;
+          video.style.display = 'none';
+        }
+        const placeholder = document.getElementById('qr-camera-placeholder');
+        if(placeholder) {
+          placeholder.style.display = 'block';
+          placeholder.innerHTML = '<span style="font-size:32px; display:block; margin-bottom:6px;">📲</span>Starting Camera Feed...';
+        }
+      }
+
+      function processQrCodeData(dataStr){
+        if(!dataStr) return false;
+        console.log('Decoded QR string:', dataStr);
+
+        let matchedPhone = '';
+
+        // 1. Match phone= parameter (e.g. fakepay://pay?phone=8148410788)
+        let match = dataStr.match(/phone=([+\d\s-]+)/i);
+        if(match) matchedPhone = match[1].replace(/\D/g, '');
+
+        // 2. Match pa= parameter (UPI string e.g. pa=8148410788@fakepay)
+        if(!matchedPhone){
+          match = dataStr.match(/pa=([+\d\s-]+)(?:@|\b)/i);
+          if(match) matchedPhone = match[1].replace(/\D/g, '');
+        }
+
+        // 3. Match 10-digit Indian mobile number starting with 6, 7, 8, 9
+        if(!matchedPhone){
+          match = dataStr.match(/\b[6-9]\d{9}\b/);
+          if(match) matchedPhone = match[0];
+        }
+
+        // 4. Fallback: extract last 10 digits from any numeric string
+        if(!matchedPhone){
+          const digits = dataStr.replace(/\D/g, '');
+          if(digits.length >= 10){
+            matchedPhone = digits.slice(-10);
+          }
+        }
+
+        if(matchedPhone && matchedPhone.length === 10){
+          stopCameraScanner();
+          const qrModal = document.getElementById('qr-scanner-modal');
+          if(qrModal) qrModal.classList.remove('show');
+          
+          const phoneInput = document.getElementById('send-receiver-phone');
+          if(phoneInput) phoneInput.value = matchedPhone;
+
+          clearError('send-error');
+          const sendModal = document.getElementById('send-modal');
+          if(sendModal) sendModal.classList.add('show');
+          
+          showToast(`Payee phone +91 ${matchedPhone} auto-filled from QR!`, 'success');
+          return true;
+        }
+        return false;
+      }
+
+      async function scanQrFrame(){
+        const video = document.getElementById('qr-video');
+        const canvas = document.getElementById('qr-canvas');
+        if(!video || !canvas || video.readyState !== video.HAVE_ENOUGH_DATA){
+          qrScanAnimationId = requestAnimationFrame(scanQrFrame);
+          return;
+        }
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        let qrFound = false;
+
+        // 1. Native BarcodeDetector API (High-performance in Chrome/Android)
+        if('BarcodeDetector' in window){
+          try {
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            const barcodes = await detector.detect(canvas);
+            if(barcodes && barcodes.length > 0){
+              qrFound = processQrCodeData(barcodes[0].rawValue);
+            }
+          } catch(e){ }
+        }
+
+        // 2. jsQR Fallback (using attemptBoth for maximum recognition accuracy)
+        if(!qrFound && typeof jsQR === 'function'){
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: "attemptBoth",
+          });
+          if(code && code.data){
+            qrFound = processQrCodeData(code.data);
+          }
+        }
+
+        if(!qrFound){
+          qrScanAnimationId = requestAnimationFrame(scanQrFrame);
+        }
+      }
+
+      const openQrScannerBtn = document.getElementById('open-qr-scanner-btn');
+      if(openQrScannerBtn){
+        openQrScannerBtn.addEventListener('click', () => {
+          const errBanner = document.getElementById('qr-error-banner');
+          if(errBanner) errBanner.style.display = 'none';
+          document.getElementById('qr-scanner-modal').classList.add('show');
+          startCameraScanner();
+        });
+      }
+
+      const qrScannerCloseBtn = document.getElementById('qr-scanner-close-btn');
+      if(qrScannerCloseBtn){
+        qrScannerCloseBtn.addEventListener('click', () => {
+          stopCameraScanner();
+          document.getElementById('qr-scanner-modal').classList.remove('show');
+        });
+      }
+
+      const qrUploadBtn = document.getElementById('qr-upload-btn');
+      const qrFileInput = document.getElementById('qr-file-input');
+      const qrPlaceholder = document.getElementById('qr-camera-placeholder');
+      if(qrUploadBtn && qrFileInput){
+        qrUploadBtn.addEventListener('click', () => qrFileInput.click());
+        if(qrPlaceholder) qrPlaceholder.addEventListener('click', () => qrFileInput.click());
+        qrFileInput.addEventListener('change', (e) => {
+          const file = e.target.files[0];
+          if(!file) return;
+
+          const errBanner = document.getElementById('qr-error-banner');
+          if(errBanner) errBanner.style.display = 'none';
+
+          showToast('Processing QR photo...', 'info');
+
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            const img = new Image();
+            img.onload = () => {
+              // Try multi-scale decoding (1000px, then 600px fallback) with attemptBoth inversion
+              const scales = [1000, 600];
+              let found = false;
+
+              for (const maxDim of scales) {
+                let w = img.width;
+                let h = img.height;
+                if (w > maxDim || h > maxDim) {
+                  if (w > h) {
+                    h = Math.round((h * maxDim) / w);
+                    w = maxDim;
+                  } else {
+                    w = Math.round((w * maxDim) / h);
+                    h = maxDim;
+                  }
+                }
+
+                const canvas = document.getElementById('qr-canvas') || document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = w;
+                canvas.height = h;
+                ctx.drawImage(img, 0, 0, w, h);
+
+                if(typeof jsQR === 'function'){
+                  const imageData = ctx.getImageData(0, 0, w, h);
+                  const code = jsQR(imageData.data, w, h, { inversionAttempts: "attemptBoth" });
+                  if(code && code.data){
+                    found = processQrCodeData(code.data);
+                    if(found) break;
+                  }
+                }
+              }
+
+              if(!found){
+                if(errBanner){
+                  errBanner.style.display = 'block';
+                  const errText = document.getElementById('qr-error-banner-text');
+                  if(errText) errText.textContent = 'No QR code or valid payee phone number detected in this photo. Please capture a clear QR code or pick another image.';
+                }
+                showToast('No QR code detected in image. Try another photo.', 'error');
+              }
+            };
+            img.src = event.target.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // Send money modal handlers
+      let pendingTransferPhone = '';
+      let pendingTransferAmount = 0;
+
+      const sendCloseBtn = document.getElementById('send-close-btn');
+      if(sendCloseBtn) sendCloseBtn.addEventListener('click', () => document.getElementById('send-modal').classList.remove('show'));
+
+      const sendPinCancelBtn = document.getElementById('send-pin-cancel-btn');
+      if(sendPinCancelBtn) sendPinCancelBtn.addEventListener('click', () => document.getElementById('send-pin-modal').classList.remove('show'));
+
+      const sendForm = document.getElementById('send-form');
+      if(sendForm){
+        sendForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          clearError('send-error');
+          const receiverPhone = document.getElementById('send-receiver-phone').value.trim();
+          const amountStr = document.getElementById('send-amount').value.trim();
+
+          if(!receiverPhone || !amountStr){
+            showError('send-error', 'Please enter payee phone number and transfer amount.');
+            return;
+          }
+
+          const cleanPhone = receiverPhone.replace(/\D/g, '');
+          if(cleanPhone.length < 10){
+            showError('send-error', 'Please enter a valid 10-digit mobile number.');
+            return;
+          }
+
+          const amount = parseFloat(amountStr);
+          if(isNaN(amount) || amount <= 0){
+            showError('send-error', 'Please enter a valid transfer amount (minimum ₹1).');
+            return;
+          }
+
+          // Save pending transfer parameters and transition to Step 2 (UPI PIN Modal)
+          pendingTransferPhone = cleanPhone;
+          pendingTransferAmount = amount;
+
+          document.getElementById('send-modal').classList.remove('show');
+
+          const amtSumm = document.getElementById('transfer-summary-amount');
+          if(amtSumm) amtSumm.textContent = '₹' + amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+          const payeeSumm = document.getElementById('transfer-summary-payee');
+          if(payeeSumm) payeeSumm.textContent = '+91 ' + cleanPhone;
+
+          clearError('send-pin-error');
+          const pinForm = document.getElementById('send-pin-form');
+          if(pinForm) pinForm.reset();
+
+          document.getElementById('send-pin-modal').classList.add('show');
+          setTimeout(() => {
+            const pinInput = document.getElementById('transfer-upi-pin');
+            if(pinInput) pinInput.focus();
+          }, 200);
+        });
+      }
+
+      const sendPinForm = document.getElementById('send-pin-form');
+      if(sendPinForm){
+        sendPinForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          clearError('send-pin-error');
+          const btn = document.getElementById('send-pin-submit-btn');
+          const upiPin = document.getElementById('transfer-upi-pin').value.trim();
+
+          if(!upiPin || upiPin.length !== 4){
+            showError('send-pin-error', 'Please enter your 4-digit UPI PIN.');
+            return;
+          }
+
+          const userObj = JSON.parse(localStorage.getItem('fakepay_user') || '{}');
+          const activeSenderPhone = currentUserPhone || userObj.phoneNo || userObj.phone || localStorage.getItem('fakepay_user_phone') || '';
+          const cleanSenderPhone = activeSenderPhone.replace(/\D/g, '');
+
+          if(btn) setLoading(btn, true);
+
+          try {
+            const res = await fetch(`${BACKEND_BASE}/api/transaction/transfer`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                senderPhone: cleanSenderPhone,
+                senderBankName: linkedBankName || 'State Bank of India',
+                receiverPhone: pendingTransferPhone,
+                receiverBankName: 'HDFC Bank',
+                money: pendingTransferAmount,
+                upiPin: upiPin
+              })
+            });
+
+            if(!res.ok){
+              const msg = await extractErrorMessage(res);
+              throw new Error(msg);
+            }
+
+            const tx = await res.json();
+            document.getElementById('send-pin-modal').classList.remove('show');
+            if(sendForm) sendForm.reset();
+            sendPinForm.reset();
+
+            const formatted = pendingTransferAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            showGPaySuccessOverlay({
+              amount: '₹' + formatted,
+              payee: 'Paid to +91 ' + pendingTransferPhone,
+              bank: 'Debited from ' + (linkedBankName || 'Primary Bank Account'),
+              ref: 'Sim-Chain Sealed • Block #' + (tx.upcomingBlockId || '001'),
+              badge: '🟢 PAYMENT SUCCESSFUL',
+              soundType: 'transfer'
+            });
+
+            showToast(`₹${formatted} sent successfully to +91 ${pendingTransferPhone}!`, 'success');
+          } catch(err){
+            const errMsg = err.message || 'Transfer failed. Please check your UPI PIN or bank balance.';
+            showError('send-pin-error', errMsg);
+            showToast(errMsg, 'error');
+
+            if(errMsg.toLowerCase().includes('balance') || errMsg.toLowerCase().includes('insufficient')){
+              showModalPopup({
+                title: 'Insufficient Bank Balance',
+                message: errMsg,
+                badgeText: 'INSUFFICIENT BALANCE',
+                actionText: 'Check Balance',
+                showActionBtn: true,
+                onAction: () => {
+                  openCheckBalanceModal();
+                }
+              });
+            } else {
+              showError('send-pin-error', '⚠️ ' + errMsg);
+              const pinInput = document.getElementById('transfer-upi-pin');
+              if(pinInput) {
+                pinInput.value = '';
+                pinInput.classList.remove('shake-error');
+                void pinInput.offsetWidth;
+                pinInput.classList.add('shake-error');
+                pinInput.focus();
+              }
+            }
+          } finally {
+            if(btn) setLoading(btn, false);
+          }
+        });
+      }
+
+      // Receive money modal handlers
+      const receiveCloseBtn = document.getElementById('receive-close-btn');
+      if(receiveCloseBtn) receiveCloseBtn.addEventListener('click', () => document.getElementById('receive-modal').classList.remove('show'));
+      
+      const copyUpiBtn = document.getElementById('copy-upi-btn');
+      if(copyUpiBtn){
+        copyUpiBtn.addEventListener('click', () => {
+          const upiStr = `${currentUserPhone}@fakepay`;
+          navigator.clipboard.writeText(upiStr);
+          showToast(`UPI ID ${upiStr} copied to clipboard!`, 'success');
+        });
+      }
+
+      // Transaction history modal handlers
+      const historyCloseBtn = document.getElementById('history-close-btn');
+      if(historyCloseBtn) historyCloseBtn.addEventListener('click', () => document.getElementById('history-modal').classList.remove('show'));
+
+      const refreshHistoryBtn = document.getElementById('refresh-history-btn');
+      if(refreshHistoryBtn) refreshHistoryBtn.addEventListener('click', fetchAndRenderHistory);
+
+      async function fetchAndRenderHistory(){
+        const listContainer = document.getElementById('tx-history-list');
+        if(!listContainer) return;
+        listContainer.innerHTML = '<div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); text-align:center; padding:20px;">Mining block ledger entries...</div>';
+
+        // Sanitize phone number (strip +91 and spaces)
+        const cleanPhone = (currentUserPhone || localStorage.getItem('fakepay_last_phone') || '').replace(/\D/g, '');
+
+        if(!cleanPhone){
+          listContainer.innerHTML = '<div style="font-family:var(--font-mono); font-size:12px; color:var(--stamp); text-align:center; padding:20px;">Please log in to view transaction history.</div>';
+          return;
+        }
+
+        try {
+          let res = await fetch(`${BACKEND_BASE}/api/transaction/history/${cleanPhone}`);
+          if(!res.ok && currentUserPhone && cleanPhone !== currentUserPhone){
+            res = await fetch(`${BACKEND_BASE}/api/transaction/history/${encodeURIComponent(currentUserPhone)}`);
+          }
+          if(!res.ok) throw new Error('Failed to fetch transaction history');
+          const transactions = await res.json();
+
+          listContainer.innerHTML = '';
+          if(!Array.isArray(transactions) || transactions.length === 0){
+            listContainer.innerHTML = '<div style="font-family:var(--font-mono); font-size:12px; color:var(--ink-soft); text-align:center; padding:30px 10px;">No blocks mined yet on Sim-Chain.</div>';
+            return;
+          }
+
+          transactions.forEach(tx => {
+            const cleanSender = (tx.senderPhone || '').replace(/\D/g, '');
+            const isDebit = (cleanSender === cleanPhone);
+            const amountFormatted = parseFloat(tx.money).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            
+            // Green (+) for Received money, Red (-) for Sent money
+            const amountClass = isDebit ? 'debit' : 'credit';
+            const amountPrefix = isDebit ? '- ₹' : '+ ₹';
+
+            const partnerPhone = isDebit ? (tx.receiverPhone || 'Unknown') : (tx.senderPhone || 'Unknown');
+            const partyLabel = isDebit ? `Sent to +91 ${partnerPhone}` : `Received from +91 ${partnerPhone}`;
+            const routeLabel = `${tx.senderBankName || 'Bank'} ➔ ${tx.receiverBankName || 'Bank'}`;
+
+            const dt = tx.time ? new Date(tx.time).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Just now';
+            const shortHash = tx.blockId ? (tx.blockId.substring(0, 10) + '...' + tx.blockId.substring(tx.blockId.length - 6)) : '0xHASH';
+
+            const cardEl = document.createElement('div');
+            cardEl.className = 'tx-card';
+            cardEl.innerHTML = `
+              <div class="tx-card-top">
+                <div>
+                  <div class="tx-party-title">${partyLabel}</div>
+                  <div class="tx-route-sub">${routeLabel}</div>
+                </div>
+                <div class="tx-amount ${amountClass}">${amountPrefix}${amountFormatted}</div>
+              </div>
+              <div class="tx-card-bot">
+                <div class="tx-date-time">📅 ${dt}</div>
+                <div class="block-hash-chip" title="Click to view full block details">⛓ ${shortHash}</div>
+              </div>
+            `;
+
+            const hashChip = cardEl.querySelector('.block-hash-chip');
+            if(hashChip){
+              hashChip.addEventListener('click', () => {
+                showBlockDetailsModal(tx);
+              });
+            }
+
+            listContainer.appendChild(cardEl);
+          });
+        } catch(e){
+          console.error('History fetch error:', e);
+          listContainer.innerHTML = '<div style="font-family:var(--font-mono); font-size:12px; color:var(--stamp); text-align:center; padding:20px;">Failed to load transaction history.</div>';
+        }
+      }
+
+      function showBlockDetailsModal(tx){
+        const contentEl = document.getElementById('block-details-content');
+        if(contentEl){
+          contentEl.innerHTML = `
+            <div><b>Block Hash:</b> <span style="color:var(--brass);">${tx.blockId || 'N/A'}</span></div>
+            <div style="margin-top:6px;"><b>Prev Block ID:</b> ${tx.prevBlockId || 'GENESIS_NODE_0'}</div>
+            <div style="margin-top:6px;"><b>Upcoming Block ID:</b> ${tx.upcomingBlockId || 'UNCONFIRMED_HEAD'}</div>
+            <div style="margin-top:6px;"><b>Transfer:</b> +91 ${tx.senderPhone} ➔ +91 ${tx.receiverPhone}</div>
+            <div style="margin-top:6px;"><b>Amount:</b> ₹${tx.money}</div>
+            <div style="margin-top:6px;"><b>Timestamp:</b> ${tx.time || 'N/A'}</div>
+          `;
+        }
+        document.getElementById('block-modal').classList.add('show');
+      }
+
+      const blockCloseBtn = document.getElementById('block-close-btn');
+      if(blockCloseBtn) blockCloseBtn.addEventListener('click', () => document.getElementById('block-modal').classList.remove('show'));
+
+      function applyUnlinkedUI(){
+        isBankLinked = false;
+        linkedBankName = '';
+
+        const ctaCard = document.getElementById('link-bank-cta');
+        if(ctaCard) ctaCard.style.display = 'block';
+
+        const linkedCard = document.getElementById('linked-bank-card');
+        if(linkedCard) linkedCard.style.display = 'none';
+
+        const balanceCard = document.getElementById('balance-card-container');
+        if(balanceCard) balanceCard.style.display = 'none';
+
+        const statusEl = document.getElementById('welcome-status');
+        if(statusEl){
+          statusEl.className = 'status-badge unlinked';
+          statusEl.innerHTML = '<span>🟡</span> <span>Bank Not Linked</span>';
+        }
+
+        document.querySelectorAll('.action-card').forEach(card => {
+          card.classList.add('disabled');
+          const tag = card.querySelector('.action-tag');
+          if(tag) tag.textContent = 'Disabled';
+        });
+      }
+
+      // Web Audio API Sound Synthesizer for Signature Chime
+      function playSuccessChimeSound() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if(!AudioCtx) return;
+          const ctx = new AudioCtx();
+          if(ctx.state === 'suspended') ctx.resume();
+
+          const now = ctx.currentTime;
+          // Crystal bell harmonics for "THINNNNKKK" chime: E6 (1318.51 Hz), B6 (1975.53 Hz), E7 (2637.02 Hz)
+          const freqs = [1318.51, 1975.53, 2637.02];
+
+          freqs.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + idx * 0.04);
+
+            gain.gain.setValueAtTime(0.001, now + idx * 0.04);
+            gain.gain.exponentialRampToValueAtTime(0.3 / (idx + 1), now + idx * 0.04 + 0.012);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.04 + 1.8);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(now + idx * 0.04);
+            osc.stop(now + idx * 0.04 + 1.8);
+          });
+        } catch(e){
+          console.warn('Audio play error:', e);
+        }
+      }
+
+      function playBankLinkedChimeSound() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if(!AudioCtx) return;
+          const ctx = new AudioCtx();
+          if(ctx.state === 'suspended') ctx.resume();
+
+          const now = ctx.currentTime;
+          // Arpeggio chord notes: C5 (523.25), G5 (783.99), C6 (1046.50), E6 (1318.51)
+          const notes = [523.25, 783.99, 1046.50, 1318.51];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const startTime = now + idx * 0.07;
+
+            osc.type = 'triangle';
+            osc.frequency.setValueAtTime(freq, startTime);
+
+            gain.gain.setValueAtTime(0.001, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.28, startTime + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 1.2);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + 1.2);
+          });
+        } catch(e){
+          console.warn('Bank audio play error:', e);
+        }
+      }
+
+      function showGPaySuccessOverlay(opts){
+        const overlay = document.getElementById('gpay-success-overlay');
+        if(!overlay) return;
+
+        const badge = document.getElementById('gpay-succ-badge');
+        if(badge) badge.innerHTML = `<span>${opts.badge || '🟢 PAYMENT SUCCESSFUL'}</span>`;
+
+        const amt = document.getElementById('gpay-succ-amount');
+        if(amt) amt.textContent = opts.amount || '₹0.00';
+
+        const payee = document.getElementById('gpay-succ-payee');
+        if(payee) payee.textContent = opts.payee || '';
+
+        const bank = document.getElementById('gpay-succ-bank');
+        if(bank) bank.textContent = opts.bank || '';
+
+        const ref = document.getElementById('gpay-succ-ref');
+        if(ref) ref.textContent = opts.ref || 'Sim-Chain Sealed Passbook Entry';
+
+        // Reset and trigger tick SVG animation
+        const tickSvg = overlay.querySelector('.gpay-tick-svg');
+        if(tickSvg){
+          tickSvg.style.animation = 'none';
+          void tickSvg.offsetWidth;
+          tickSvg.style.animation = '';
+        }
+
+        overlay.classList.add('show');
+
+        // Play crystal chime sound
+        if(opts.soundType === 'bank') {
+          playBankLinkedChimeSound();
+        } else {
+          playSuccessChimeSound();
+        }
+      }
+
+      const gpayDoneBtn = document.getElementById('gpay-succ-done-btn');
+      if(gpayDoneBtn) gpayDoneBtn.addEventListener('click', () => {
+        const overlay = document.getElementById('gpay-success-overlay');
+        if(overlay) overlay.classList.remove('show');
+      });
+
+      async function checkAndApplyBankStatus(phone){
+        const cleanPhone = (phone || '').replace(/\D/g, '');
+        if(!cleanPhone) {
+          applyUnlinkedUI();
+          return false;
+        }
+
+        const cachedBank = localStorage.getItem('fakepay_linked_bank_' + cleanPhone);
+        const cachedBal = localStorage.getItem('fakepay_balance_' + cleanPhone) || 5000;
+
+        // If user has linked a bank previously, restore linked UI immediately
+        if(cachedBank){
+          applyLinkedUI(cachedBank, cachedBal);
+        }
+
+        try {
+          const res = await fetch(`${BACKEND_BASE}/api/bank-user/details/${cleanPhone}`);
+          if(res.ok){
+            const bankUser = await res.json();
+            if(bankUser && (bankUser.upiPin || bankUser.upiId)){
+              const bankName = bankUser.upiId || bankUser.bankName || cachedBank || 'Primary Bank Account';
+              const liveBal = (bankUser.balance !== undefined && bankUser.balance !== null) ? bankUser.balance : cachedBal;
+              localStorage.setItem('fakepay_linked_bank_' + cleanPhone, bankName);
+              localStorage.setItem('fakepay_balance_' + cleanPhone, liveBal);
+              applyLinkedUI(bankName, liveBal);
+              return true;
+            }
+          }
+        } catch(e){
+          console.warn('Bank details check failed:', e);
+        }
+
+        // Only if neither cached bank nor backend record exists, apply unlinked UI
+        if(!cachedBank){
+          applyUnlinkedUI();
+          setTimeout(() => {
+            showModalPopup({
+              title: 'Link Your Bank Account',
+              message: 'You have not linked a bank account yet. Connect your bank to set up your UPI PIN and unlock transfers.',
+              badgeText: 'ACTION REQUIRED',
+              actionText: '+ Add Bank Account',
+              showActionBtn: true,
+              onAction: () => {
+                openBankModal();
+              }
+            });
+          }, 350);
+          return false;
+        }
+        return true;
+      }
+
+
+
+      function openProfileDrawer(){
+        const drawerBank = document.getElementById('profile-drawer-bank');
+        if(drawerBank) drawerBank.textContent = isBankLinked ? (linkedBankName || 'Primary Bank Account') : 'No Primary Bank Account';
+
+        const drawerStatus = document.getElementById('profile-drawer-status');
+        if(drawerStatus){
+          if(isBankLinked){
+            drawerStatus.className = 'status-badge linked';
+            drawerStatus.innerHTML = '<span>🟢</span> <span>Active &amp; Verified</span>';
+          } else {
+            drawerStatus.className = 'status-badge unlinked';
+            drawerStatus.innerHTML = '<span>🟡</span> <span>Not Linked</span>';
+          }
+        }
+
+        document.getElementById('profile-drawer-modal').classList.add('show');
+      }
+
+      const avatarBtn = document.getElementById('gpay-avatar-btn');
+      if(avatarBtn) avatarBtn.addEventListener('click', openProfileDrawer);
+
+      const topBarEl = document.getElementById('gpay-top-bar');
+      if(topBarEl) topBarEl.addEventListener('click', (e) => {
+        if(!e.target.closest('#gpay-avatar-btn')) {
+          openProfileDrawer();
+        }
+      });
+
+      const drawerCloseBtn = document.getElementById('profile-drawer-close-btn');
+      if(drawerCloseBtn) drawerCloseBtn.addEventListener('click', () => {
+        document.getElementById('profile-drawer-modal').classList.remove('show');
+      });
+
+      function showWelcome(user){
+        const name = (user && (user.userName || user.name || user.username)) || 'there';
+        const phone = (user && (user.phoneNo || user.phone)) || '81484XXXXX';
+        currentUserPhone = phone;
+        
+        const initial = (name.trim().charAt(0) || 'J').toUpperCase();
+
+        const nameEl = document.getElementById('welcome-name');
+        if(nameEl) nameEl.textContent = name;
+        
+        const avatarInit = document.getElementById('gpay-avatar-initial');
+        if(avatarInit) avatarInit.textContent = initial;
+
+        const drawerInit = document.getElementById('profile-drawer-initial');
+        if(drawerInit) drawerInit.textContent = initial;
+
+        const drawerName = document.getElementById('profile-drawer-name');
+        if(drawerName) drawerName.textContent = name;
+
+        const drawerPhone = document.getElementById('profile-drawer-phone');
+        if(drawerPhone) drawerPhone.textContent = phone.startsWith('+91') ? phone : `+91 ${phone}`;
+
+        const welcomeEl = document.getElementById('welcome');
+        if(welcomeEl) welcomeEl.classList.add('show');
+
+        // Restore/verify linked bank status and balance
+        checkAndApplyBankStatus(phone);
+
+        const stamp = document.getElementById('stamp');
+        if(stamp){
+          stamp.classList.remove('animate');
+          void stamp.offsetWidth;
+          stamp.classList.add('animate');
+        }
+      }
+
+      const loginForm = document.getElementById('login-panel');
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError('login-error');
+        const btn = loginForm.querySelector('.submit-btn');
+        const rawPhone = document.getElementById('login-phone').value.trim();
+        const cleanPhone = rawPhone.replace(/\D/g, '');
+        const phoneNo = cleanPhone || rawPhone;
+
+        if(!phoneNo){
+          const msg = 'Please enter your phone number to log in.';
+          showError('login-error', msg);
+          showModalPopup({
+            title: 'Phone Number Required',
+            message: msg,
+            badgeText: 'MISSING NUMBER',
+            showActionBtn: false
+          });
+          return;
+        }
+
+        setLoading(btn, true);
+        try {
+          const res = await fetch(`${API_BASE}/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneNo: phoneNo })
+          });
+          if(!res.ok){
+            const msg = await extractErrorMessage(res);
+            throw new Error(msg);
+          }
+          const user = await res.json();
+          showToast('Logged in successfully.', 'success');
+          showWelcome(user);
+        } catch(err){
+          const errMsg = err.message || 'Phone number not found in our ledger.';
+          showError('login-error', errMsg);
+          showToast(errMsg, 'error');
+
+          const isNetworkError = errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError');
+
+          showModalPopup({
+            title: isNetworkError ? 'Backend Connection Error' : 'Login Number Not Found',
+            message: isNetworkError ? `Unable to reach Spring Boot server at ${BACKEND_BASE}. Please make sure your Spring Boot backend application is running.` : errMsg,
+            badgeText: isNetworkError ? 'SERVER OFFLINE' : 'NOT REGISTERED',
+            actionText: isNetworkError ? 'Retry Connection' : 'Open Account',
+            showActionBtn: true,
+            onAction: () => {
+              if(!isNetworkError){
+                const signupTab = document.querySelector('.tab[data-tab="signup"]');
+                if(signupTab) signupTab.click();
+                const loginPhone = document.getElementById('login-phone').value.trim();
+                if(loginPhone){
+                  document.getElementById('signup-phone').value = loginPhone;
+                }
+              }
+            }
+          });
+        } finally {
+          setLoading(btn, false);
+        }
+      });
+
+      const signupForm = document.getElementById('signup-panel');
+      signupForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError('signup-error');
+        const btn = signupForm.querySelector('.submit-btn');
+        const name = document.getElementById('signup-name').value.trim();
+        const phoneNo = document.getElementById('signup-phone').value.trim();
+
+        if(!name || !phoneNo){
+          const msg = 'Fill in all fields to continue.';
+          showError('signup-error', msg);
+          showModalPopup({
+            title: 'Incomplete Details',
+            message: msg,
+            badgeText: 'REQUIRED FIELDS',
+            showActionBtn: false
+          });
+          return;
+        }
+
+        setLoading(btn, true);
+        try {
+          const res = await fetch(`${API_BASE}/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, phoneNo: phoneNo })
+          });
+          if(!res.ok){
+            const msg = await extractErrorMessage(res);
+            throw new Error(msg);
+          }
+          const user = await res.json();
+          showToast('Account created.', 'success');
+          showWelcome(user);
+        } catch(err){
+          const errMsg = err.message || 'Sign up failed. Try again.';
+          showError('signup-error', errMsg);
+          showToast(errMsg, 'error');
+          showModalPopup({
+            title: 'Account Already Present',
+            message: errMsg,
+            badgeText: 'ALREADY REGISTERED',
+            actionText: 'Log In Instead',
+            showActionBtn: true,
+            onAction: () => {
+              const loginTab = document.querySelector('.tab[data-tab="login"]');
+              if(loginTab) loginTab.click();
+              const signupPhone = document.getElementById('signup-phone').value.trim();
+              if(signupPhone){
+                document.getElementById('login-phone').value = signupPhone;
+              }
+            }
+          });
+        } finally {
+          setLoading(btn, false);
+        }
+      });
+
+      const performLogout = () => {
+        currentUserPhone = '';
+        applyUnlinkedUI();
+        document.getElementById('welcome').classList.remove('show');
+        document.getElementById('profile-drawer-modal').classList.remove('show');
+        loginForm.reset();
+        signupForm.reset();
+        clearError('login-error');
+        clearError('signup-error');
+        showToast('Logged out of FakePay session.', 'info');
+      };
+
+      const mainLogoutBtn = document.getElementById('logout-btn');
+      if(mainLogoutBtn) mainLogoutBtn.addEventListener('click', performLogout);
+
+      const cardLogoutBtn = document.getElementById('card-logout-btn');
+      if(cardLogoutBtn) cardLogoutBtn.addEventListener('click', performLogout);
+    })();
+</script>
+
+</body>
+</html>

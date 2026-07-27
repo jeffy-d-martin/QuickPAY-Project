@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @AllArgsConstructor
+@CrossOrigin(originPatterns = "*")
 @RequestMapping("/api/homepage")
 public class UserController {
 
@@ -27,5 +28,10 @@ public class UserController {
     public ResponseEntity<User> login(@RequestBody LoginRequest loginRequest) {
         User user = userService.loginWithPhone(loginRequest);
         return ResponseEntity.ok(user);
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<java.util.List<User>> getAllUsers() {
+        return ResponseEntity.ok(userService.getAllUsers());
     }
 }

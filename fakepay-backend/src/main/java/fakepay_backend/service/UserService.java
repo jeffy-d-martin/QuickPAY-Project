@@ -18,23 +18,31 @@ public class UserService {
     private JeffyEncryptionUtil jeffyEncryptionUtil;
 
     public User signUp(SignUpRequest signUpRequest) {
+        String cleanPhone = signUpRequest.getPhoneNo() != null ? signUpRequest.getPhoneNo().replaceAll("\\D", "") : "";
+        String phoneToSave = !cleanPhone.isEmpty() ? cleanPhone : signUpRequest.getPhoneNo();
 
-        userRepository.findByPhoneNo(signUpRequest.getPhoneNo()).ifPresent(user -> {
+        userRepository.findByPhoneNo(phoneToSave).ifPresent(user -> {
             throw new UserAlreadyExistsException("Phone number " + signUpRequest.getPhoneNo() + " is already registered!");
         });
         User user = new User();
         user.setUserName(signUpRequest.getName());
-        user.setPhoneNo(signUpRequest.getPhoneNo());
+        user.setPhoneNo(phoneToSave);
         return userRepository.save(user);
     }
 
     public User loginWithPhone(LoginRequest loginRequest) {
-        // Fetch user by phone or throw 404 exception if not found
-        return userRepository.findByPhoneNo(loginRequest.getPhoneNo())
+        String rawPhone = loginRequest.getPhoneNo();
+        String cleanPhone = rawPhone != null ? rawPhone.replaceAll("\\D", "") : "";
+
+        return userRepository.findByPhoneNo(cleanPhone)
+                .orElseGet(() -> userRepository.findByPhoneNo(rawPhone)
                 .orElseThrow(() -> new UserNotFoundException(
                         "User with phone number " + loginRequest.getPhoneNo() + " is not registered. Please sign up first."
-                ));
+                )));
     }
 
 
+    public java.util.List<User> getAllUsers() {
+        return userRepository.findAll();
+    }
 }
