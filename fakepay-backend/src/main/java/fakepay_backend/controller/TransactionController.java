@@ -32,4 +32,34 @@ public class TransactionController {
     public ResponseEntity<java.util.List<Transaction>> getUserTransactions(@PathVariable String phoneNo) {
         return ResponseEntity.ok(transactionService.getUserTransactions(phoneNo));
     }
+
+    @GetMapping("/chain/{phoneNo}")
+    public ResponseEntity<java.util.List<Transaction>> getTransactionChain(@PathVariable String phoneNo) {
+        return ResponseEntity.ok(transactionService.getUserTransactions(phoneNo));
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<java.util.List<Transaction>> getAllTransactions() {
+        return ResponseEntity.ok(transactionService.getAllTransactions());
+    }
+
+    @GetMapping("/verify/{phoneNo}")
+    public ResponseEntity<fakepay_backend.dto.BlockchainVerificationResponse> verifyChain(@PathVariable String phoneNo) {
+        return ResponseEntity.ok(transactionService.verifyBlockchainChain(phoneNo));
+    }
+
+    @PostMapping("/verify-list")
+    public ResponseEntity<fakepay_backend.dto.BlockchainVerificationResponse> verifyList(@RequestBody java.util.List<Transaction> transactions) {
+        return ResponseEntity.ok(transactionService.verifyTransactionListIntegrity(transactions));
+    }
+
+    @GetMapping("/recalculate-verify/{phoneNo}")
+    public ResponseEntity<fakepay_backend.dto.BlockchainVerificationResponse> recalculateAndVerifyChain(@PathVariable String phoneNo) {
+        return ResponseEntity.ok(transactionService.recalculateAndVerifyChain(phoneNo));
+    }
+
+    @PostMapping("/recalculate-block")
+    public ResponseEntity<fakepay_backend.dto.BlockchainVerificationResponse.BlockVerificationResult> recalculateSingleBlock(@RequestBody Transaction transaction) {
+        return ResponseEntity.ok(transactionService.recalculateAndVerifySingleBlock(transaction));
+    }
 }
