@@ -1,0 +1,23 @@
+# Environment variable files and secrets
+.env
+.env.local
+*.env
+!.env.example
+
+# Build artifacts
+**/target/
+**/build/
+*.class
+*.jar
+*.war
+
+# IDE files
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+.DS_Store
